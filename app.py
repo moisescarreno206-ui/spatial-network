@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, jsonify, render_template_string
 from supabase import create_client, Client
 
 app = Flask(__name__)
@@ -16,19 +16,6 @@ if SUPABASE_URL and SUPABASE_KEY:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 else:
     supabase = None
-
-# --- LÓGICA DE MODERACIÓN ---
-def es_comportamiento_indebido(mensaje):
-    palabras_prohibidas = ['spam', 'ilegal', 'hackeo', 'abuso']
-    return any(p in mensaje.lower() for p in palabras_prohibidas)
-
-def reportar_al_servidor_principal(usuario, mensaje):
-    try:
-        data = {"usuario": usuario, "alerta": "comportamiento_indebido", "contenido": mensaje}
-        headers = {"X-Amiti-Auth": TOKEN_ENLACE}
-        requests.post(f"{SERVIDOR_1_URL}/api/v1/alertas", json=data, headers=headers, timeout=5)
-    except Exception as e:
-        print(f"Fallo reporte: {e}")
 
 # --- RUTAS ---
 @app.route("/manifest.json")
@@ -53,6 +40,9 @@ def portada():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spatial Network</title>
     <link rel="manifest" href="/manifest.json">
+    <!-- Librerías para QR Code -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background: #090a10; color: #ffffff; min-height: 100vh; overflow: hidden; }
@@ -69,7 +59,7 @@ def portada():
         
         .form-group { margin-bottom: 15px; text-align: left; }
         label { font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px; }
-        input, textarea { width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; color: #fff; font-size: 0.95rem; outline: none; }
+        input, select, textarea { width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; color: #fff; font-size: 0.95rem; outline: none; }
         
         button.btn-submit { width: 100%; padding: 12px; background: linear-gradient(135deg, #a855f7, #6366f1); border: none; border-radius: 12px; color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4); }
 
@@ -83,8 +73,7 @@ def portada():
         .section-view { display: none; flex-direction: column; flex: 1; overflow-y: auto; padding-bottom: 75px; }
         .section-view.active { display: flex; }
 
-        /* BUSCADOR ESTILO IMAGEN 1 */
-        .search-box { padding: 12px 15px; }
+        .search-box { padding: 12px 16px; }
         .search-input { width: 100%; padding: 10px 16px; background: #151824; border: 1px solid #252836; border-radius: 20px; color: #fff; font-size: 0.9rem; outline: none; }
 
         /* LISTA DE CHATS Y CONTACTOS */
@@ -92,37 +81,39 @@ def portada():
         .chat-item { display: flex; align-items: center; padding: 12px 16px; gap: 14px; text-decoration: none; color: white; cursor: pointer; border-bottom: 1px solid #121420; }
         .chat-item:active { background-color: #151824; }
         .avatar { width: 50px; height: 50px; background: #252836; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 1.1rem; color: #a855f7; position: relative; }
-        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .avatar img, .avatar video { width: 100%; height: 100%; object-fit: cover; }
         .chat-info { display: flex; flex-direction: column; gap: 3px; flex: 1; overflow: hidden; }
         .chat-top-line { display: flex; justify-content: space-between; align-items: center; }
         .chat-name { font-weight: 700; font-size: 0.98rem; color: #f1f5f9; }
         .chat-time { font-size: 0.75rem; color: #64748b; }
         .chat-preview { font-size: 0.85rem; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* FAB (BOTÓN FLOTANTE ESTILO IMAGEN 1) */
+        .empty-state { padding: 40px 20px; text-align: center; color: #64748b; font-size: 0.9rem; }
+
+        /* FAB */
         .fab { position: fixed; bottom: 80px; right: 20px; width: 56px; height: 56px; background: linear-gradient(135deg, #a855f7, #6366f1); border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; box-shadow: 0 8px 20px rgba(168, 85, 247, 0.5); cursor: pointer; z-index: 5; }
 
-        /* PANTALLA NOVEDADES / ESTADOS (IMAGEN 3) */
+        /* NOVEDADES / ESTADOS */
         .section-subtitle { padding: 15px 16px 5px; font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
         .status-ring { padding: 2px; border: 2px solid #a855f7; border-radius: 50%; }
         .add-status-badge { position: absolute; bottom: 0; right: 0; background: #a855f7; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; border: 2px solid #090a10; }
 
-        /* PANTALLA CONTACTOS (IMAGEN 2) */
+        /* CONTACTOS */
         .action-item { display: flex; align-items: center; padding: 14px 16px; gap: 15px; cursor: pointer; }
         .action-icon { width: 44px; height: 44px; background: rgba(168, 85, 247, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #a855f7; }
         .action-text { font-weight: 600; font-size: 0.95rem; color: #f1f5f9; }
 
-        /* PANTALLA PERFIL / MENÚ (IMAGEN 4) */
-        .profile-header { padding: 30px 20px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; background: radial-gradient(circle at top, #1b1333, transparent); }
-        .profile-avatar-container { position: relative; margin-bottom: 12px; }
-        .profile-avatar-lg { width: 110px; height: 110px; border-radius: 50%; background: #252836; border: 3px solid #a855f7; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
+        /* PERFIL Y MENÚ */
+        .profile-header-card { padding: 25px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; background: radial-gradient(circle at top, #1b1333, transparent); border-bottom: 1px solid #1e202e; cursor: pointer; transition: background 0.2s; }
+        .profile-header-card:hover { background: rgba(168, 85, 247, 0.08); }
+        .profile-avatar-lg { width: 100px; height: 100px; border-radius: 50%; background: #252836; border: 3px solid #a855f7; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; margin-bottom: 10px; }
         .profile-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
-        .status-thought-bubble { background: #1e2030; border: 1px solid #33374d; padding: 6px 14px; border-radius: 15px; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); max-width: 80%; }
-        .profile-name-lg { font-size: 1.3rem; font-weight: 800; color: #fff; }
-        .profile-handle { font-size: 0.88rem; color: #94a3b8; margin-top: 2px; }
-        .btn-edit-header { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.3rem; color: #a855f7; cursor: pointer; }
+        .status-thought-bubble { background: #1e2030; border: 1px solid #33374d; padding: 6px 14px; border-radius: 15px; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 8px; }
+        .profile-name-lg { font-size: 1.25rem; font-weight: 800; color: #fff; }
+        .profile-handle { font-size: 0.85rem; color: #94a3b8; }
+        .profile-contact-info { font-size: 0.8rem; color: #a855f7; margin-top: 4px; font-weight: 600; }
 
-        .settings-list { padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
+        .settings-list { padding: 15px 16px; display: flex; flex-direction: column; gap: 8px; }
         .setting-card { display: flex; align-items: center; padding: 14px; background: #121420; border-radius: 16px; gap: 15px; border: 1px solid #1e202e; cursor: pointer; }
         .setting-icon { font-size: 1.2rem; color: #a855f7; width: 30px; text-align: center; }
         .setting-info { display: flex; flex-direction: column; gap: 2px; }
@@ -141,7 +132,7 @@ def portada():
         .chat-input-bar input { flex: 1; padding: 10px 16px; background: #151824; border: 1px solid #252836; border-radius: 20px; color: #fff; outline: none; }
         .send-btn { background: #a855f7; color: white; border: none; padding: 10px 18px; border-radius: 20px; font-weight: bold; cursor: pointer; }
 
-        /* BARRA DE NAVEGACIÓN INFERIOR (ESTILO IMAGEN 1, 2 y 3) */
+        /* BARRA DE NAVEGACIÓN INFERIOR */
         .nav-bar { position: fixed; bottom: 0; width: 100%; display: flex; justify-content: space-around; padding: 10px 0; background: #0f111a; border-top: 1px solid #1e202e; font-size: 0.8rem; z-index: 10; }
         .nav-item { color: #64748b; text-align: center; text-decoration: none; cursor: pointer; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
         .nav-item .icon { font-size: 1.2rem; }
@@ -149,7 +140,12 @@ def portada():
 
         /* MODALES */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); justify-content: center; align-items: center; z-index: 30; }
-        .modal-content { background: #121420; padding: 22px; border-radius: 20px; width: 90%; max-width: 380px; border: 1px solid #252836; }
+        .modal-content { background: #121420; padding: 22px; border-radius: 20px; width: 90%; max-width: 380px; border: 1px solid #252836; max-height: 90vh; overflow-y: auto; }
+
+        .qr-box { display: flex; flex-direction: column; align-items: center; gap: 15px; margin: 15px 0; }
+        .qr-box canvas { background: white; padding: 10px; border-radius: 12px; }
+        
+        .status-viewer-media { width: 100%; max-height: 350px; object-fit: contain; border-radius: 12px; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -168,16 +164,16 @@ def portada():
             <form onsubmit="procesarAuth(event)">
                 <div class="form-group" id="grp-user" style="display:none;">
                     <label>Nombre Completo</label>
-                    <input type="text" id="reg-name" placeholder="Ej. Moisés Carreño">
+                    <input type="text" id="reg-name" placeholder="Tu nombre">
                 </div>
                 <div class="form-group" id="grp-handle" style="display:none;">
                     <label>Usuario (@tag)</label>
-                    <input type="text" id="reg-handle" placeholder="Ej. @Jack12747">
+                    <input type="text" id="reg-handle" placeholder="@usuario">
                 </div>
 
                 <div class="form-group">
                     <label>Correo o Teléfono</label>
-                    <input type="text" id="identificador" placeholder="correo@ejemplo.com o 0412..." required>
+                    <input type="text" id="identificador" placeholder="Correo o Teléfono" required>
                 </div>
                 <div class="form-group">
                     <label>Contraseña</label>
@@ -193,182 +189,109 @@ def portada():
         <div class="header-app">
             <span class="header-title" id="header-main-title">Spatial Network</span>
             <div class="header-icons">
-                <span onclick="abrirSincronizacion()">➕</span>
-                <span onclick="abrirModalEditarPerfil()">✏️</span>
+                <span onclick="abrirSincronizacion()" title="Sincronizar contacto">➕</span>
+                <span onclick="abrirModalEditarPerfil()" title="Editar Perfil">✏️</span>
             </div>
         </div>
 
-        <!-- PANTALLA 1: CHATS (IMAGEN 1) -->
+        <!-- PANTALLA 1: CHATS -->
         <div class="section-view active" id="sec-chats">
             <div class="search-box">
-                <input type="text" class="search-input" placeholder="🔍 Buscar chats o mensajes..." onkeyup="filtrarLista(this.value, 'chats-container')">
+                <input type="text" class="search-input" placeholder="🔍 Buscar chats..." onkeyup="filtrarLista(this.value, 'chats-container')">
             </div>
 
             <div class="chat-list" id="chats-container">
-                <!-- Chat Soporte Amiti -->
-                <div class="chat-item" onclick="abrirChat('Amiti Soporte', '🤖', 'En línea')">
-                    <div class="avatar" style="background: #a855f7; color:white;">🤖</div>
-                    <div class="chat-info">
-                        <div class="chat-top-line">
-                            <span class="chat-name">Amiti Soporte</span>
-                            <span class="chat-time">Ahora</span>
-                        </div>
-                        <span class="chat-preview">Asistente de inteligencia activo...</span>
-                    </div>
-                </div>
-                
-                <!-- Chat Demo -->
-                <div class="chat-item" onclick="abrirChat('Ricky', '👨‍💻', 'En línea')">
-                    <div class="avatar">👨‍💻</div>
-                    <div class="chat-info">
-                        <div class="chat-top-line">
-                            <span class="chat-name">Ricky</span>
-                            <span class="chat-time">1:57 p. m.</span>
-                        </div>
-                        <span class="chat-preview">¡Hola! ¿Cómo va el despliegue del proyecto?</span>
-                    </div>
-                </div>
+                <div class="empty-state">No tienes chats iniciados.<br>Agrega contactos o escanea un QR para comenzar.</div>
             </div>
 
-            <!-- BOTÓN FLOTANTE (FAB) -->
             <div class="fab" onclick="cambiarSeccion('sec-contactos', document.querySelectorAll('.nav-item')[2])">💬</div>
         </div>
 
-        <!-- PANTALLA 2: NOVEDADES / ESTADOS (IMAGEN 3) -->
+        <!-- PANTALLA 2: NOVEDADES / ESTADOS -->
         <div class="section-view" id="sec-novedades">
-            <div class="section-subtitle">Estados</div>
+            <div class="section-subtitle">Mi Estado</div>
             
-            <!-- Mi Estado -->
-            <div class="chat-item" onclick="subirEstadoPrompt()">
+            <div class="chat-item" onclick="abrirModalPublicarEstado()">
                 <div class="avatar" id="my-status-avatar-box">
                     <span id="my-status-avatar-txt">👤</span>
                     <div class="add-status-badge">+</div>
                 </div>
                 <div class="chat-info">
                     <span class="chat-name">Añadir estado</span>
-                    <span class="chat-preview">Desaparece después de 24 horas.</span>
+                    <span class="chat-preview">Sube una imagen, video o texto (24h)</span>
                 </div>
             </div>
 
-            <div class="section-subtitle">Recientes</div>
+            <div class="section-subtitle">Estados Recientes</div>
             <div class="chat-list" id="status-list-container">
-                <div class="chat-item" onclick="verEstado('Joker😎', 'Que se vaya la luz de noche hoy 💡')">
-                    <div class="status-ring">
-                        <div class="avatar">🕶️</div>
-                    </div>
-                    <div class="chat-info">
-                        <span class="chat-name">Joker😎</span>
-                        <span class="chat-time">10:15 a. m.</span>
-                    </div>
-                </div>
-                <div class="chat-item" onclick="verEstado('La Yiyi ❤️', 'Llegó la luz ⚡')">
-                    <div class="status-ring">
-                        <div class="avatar">👩</div>
-                    </div>
-                    <div class="chat-info">
-                        <span class="chat-name">La Yiyi ❤️</span>
-                        <span class="chat-time">Ayer</span>
-                    </div>
-                </div>
+                <div class="empty-state">No hay estados recientes.</div>
             </div>
         </div>
 
-        <!-- PANTALLA 3: CONTACTOS (IMAGEN 2) -->
+        <!-- PANTALLA 3: CONTACTOS -->
         <div class="section-view" id="sec-contactos">
             <div class="search-box">
                 <input type="text" class="search-input" placeholder="🔍 Buscar contactos..." onkeyup="filtrarLista(this.value, 'contacts-list-container')">
             </div>
 
-            <!-- Acciones Rapidas -->
-            <div class="action-item" onclick="alert('Crear Nuevo Grupo')">
-                <div class="action-icon">👥</div>
-                <span class="action-text">Nuevo grupo</span>
-            </div>
             <div class="action-item" onclick="abrirSincronizacion()">
                 <div class="action-icon">👤➕</div>
-                <span class="action-text">Nuevo contacto</span>
-            </div>
-            <div class="action-item" onclick="alert('Crear Nueva Comunidad')">
-                <div class="action-icon">🌐</div>
-                <span class="action-text">Nueva comunidad</span>
+                <span class="action-text">Nuevo contacto / Escanear QR</span>
             </div>
 
-            <div class="section-subtitle">Contactos en Spatial Network</div>
+            <div class="section-subtitle">Contactos Sincronizados</div>
             <div class="chat-list" id="contacts-list-container">
                 <div class="chat-item" onclick="abrirMiChatPropio()">
                     <div class="avatar" id="contact-self-avatar">👤</div>
                     <div class="chat-info">
-                        <span class="chat-name" id="contact-self-name">Moisés Carreño (Tú)</span>
-                        <span class="chat-preview">Envía mensajes a este mismo número</span>
-                    </div>
-                </div>
-                <div class="chat-item" onclick="abrirChat('Alejandro Taxi', '🚖', 'Disponible')">
-                    <div class="avatar">🚖</div>
-                    <div class="chat-info">
-                        <span class="chat-name">Alejandro Taxi</span>
-                        <span class="chat-preview">@alejandro_taxi</span>
+                        <span class="chat-name" id="contact-self-name">Mi Espacio (Tú)</span>
+                        <span class="chat-preview">Mensajes y notas personales</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- PANTALLA 4: MENÚ / PERFIL (IMAGEN 4) -->
+        <!-- PANTALLA 4: MENÚ / PERFIL -->
         <div class="section-view" id="sec-perfil">
-            <div class="profile-header">
-                <button class="btn-edit-header" onclick="abrirModalEditarPerfil()">✏️</button>
-                
-                <div class="status-thought-bubble" id="profile-thought-display">
+            <!-- Al hacer clic en el nombre o perfil, se abre directamente la edición -->
+            <div class="profile-header-card" onclick="abrirModalEditarPerfil()">
+                <div class="status-thought-bubble">
                     💭 <span id="profile-thought-text">Ahora mismo estoy...</span>
                 </div>
 
-                <div class="profile-avatar-container">
-                    <div class="profile-avatar-lg" id="profile-lg-box">👤</div>
-                </div>
+                <div class="profile-avatar-lg" id="profile-lg-box">👤</div>
                 
-                <div class="profile-name-lg" id="profile-lg-name">Moisés Carreño</div>
-                <div class="profile-handle" id="profile-lg-handle">@Jack12747</div>
+                <div class="profile-name-lg" id="profile-lg-name">Usuario</div>
+                <div class="profile-handle" id="profile-lg-handle">@usuario</div>
+                <div class="profile-contact-info" id="profile-lg-contact">Contacto: Privado</div>
             </div>
 
             <div class="settings-list">
                 <div class="setting-card" onclick="abrirModalEditarPerfil()">
-                    <div class="setting-icon">🔑</div>
+                    <div class="setting-icon">✏️</div>
                     <div class="setting-info">
-                        <span class="setting-title">Cuenta</span>
-                        <span class="setting-desc">Notificaciones de seguridad, editar perfil</span>
+                        <span class="setting-title">Editar Perfil</span>
+                        <span class="setting-desc">Foto, nombre, usuario y privacidad</span>
                     </div>
                 </div>
-                <div class="setting-card" onclick="alert('Configuración de Privacidad')">
-                    <div class="setting-icon">🔒</div>
+                <div class="setting-card" onclick="abrirSincronizacion()">
+                    <div class="setting-icon">📱</div>
                     <div class="setting-info">
-                        <span class="setting-title">Privacidad</span>
-                        <span class="setting-desc">Cuentas bloqueadas, mensajes temporales</span>
+                        <span class="setting-title">Mi Código QR</span>
+                        <span class="setting-desc">Muestra tu código para añadir amigos</span>
                     </div>
                 </div>
-                <div class="setting-card" onclick="alert('Ajustes de Chats')">
-                    <div class="setting-icon">💬</div>
-                    <div class="setting-info">
-                        <span class="setting-title">Chats</span>
-                        <span class="setting-desc">Estilo, fondos de pantalla, historial</span>
-                    </div>
-                </div>
-                <div class="setting-card" onclick="alert('Ajustes de Notificaciones')">
-                    <div class="setting-icon">🔔</div>
-                    <div class="setting-info">
-                        <span class="setting-title">Notificaciones</span>
-                        <span class="setting-desc">Tonos de mensajes, grupos y llamadas</span>
-                    </div>
-                </div>
-                <div class="setting-card" onclick="location.reload()" style="border-color: rgba(239, 68, 68, 0.3);">
+                <div class="setting-card" onclick="cerrarSesion()" style="border-color: rgba(239, 68, 68, 0.3);">
                     <div class="setting-icon" style="color: #ef4444;">🚪</div>
                     <div class="setting-info">
                         <span class="setting-title" style="color: #ef4444;">Cerrar Sesión</span>
-                        <span class="setting-desc">Salir de tu cuenta de Spatial Network</span>
+                        <span class="setting-desc">Salir de tu cuenta</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- PANTALLA SALA DE CHAT INDIVIDUAL -->
+        <!-- VISTA SALA DE CHAT INDIVIDUAL -->
         <div id="chat-room-view">
             <div class="chat-room-header">
                 <button class="back-btn" onclick="cerrarChat()">←</button>
@@ -387,7 +310,7 @@ def portada():
             </div>
         </div>
 
-        <!-- BARRA DE NAVEGACIÓN INFERIOR -->
+         <!-- BARRA DE NAVEGACIÓN INFERIOR -->
         <div class="nav-bar">
             <div class="nav-item active" onclick="cambiarSeccion('sec-chats', this)">
                 <span class="icon">💬</span>
@@ -408,25 +331,36 @@ def portada():
         </div>
     </div>
 
-    <!-- MODAL EDITAR PERFIL (IMAGEN 4) -->
+    <!-- MODAL EDITAR PERFIL -->
     <div class="modal" id="edit-profile-modal">
         <div class="modal-content">
             <h3 style="margin-bottom: 15px; color: #a855f7;">Editar Perfil</h3>
             <div class="form-group">
-                <label>Foto de Perfil</label>
+                <label>Foto de Perfil (Galería)</label>
                 <input type="file" id="edit-avatar-file" accept="image/*" onchange="previewEditAvatar(event)">
             </div>
             <div class="form-group">
                 <label>Nombre Completo</label>
-                <input type="text" id="edit-name-input" value="Moisés Carreño">
+                <input type="text" id="edit-name-input">
             </div>
             <div class="form-group">
                 <label>Usuario (@tag)</label>
-                <input type="text" id="edit-handle-input" value="@Jack12747">
+                <input type="text" id="edit-handle-input">
+            </div>
+            <div class="form-group">
+                <label>Teléfono o Correo</label>
+                <input type="text" id="edit-contact-input">
+            </div>
+            <div class="form-group">
+                <label>Visibilidad de mi Teléfono/Correo</label>
+                <select id="edit-privacy-select">
+                    <option value="publico">Público (Visible en el chat)</option>
+                    <option value="privado">Privado (Oculto para todos)</option>
+                </select>
             </div>
             <div class="form-group">
                 <label>Pensamiento / Estado Actual</label>
-                <input type="text" id="edit-thought-input" value="Ahora mismo estoy...">
+                <input type="text" id="edit-thought-input">
             </div>
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button class="btn-submit" onclick="guardarPerfil()" style="margin-top:0;">Guardar</button>
@@ -435,30 +369,81 @@ def portada():
         </div>
     </div>
 
-    <!-- MODAL SINCRONIZAR CONTACTO -->
-    <div class="modal" id="sync-modal">
+    <!-- MODAL PUBLICAR ESTADO (IMAGEN/VIDEO) -->
+    <div class="modal" id="publish-status-modal">
         <div class="modal-content">
-            <h3 style="margin-bottom: 15px; color: #a855f7;">Sincronizar Contacto</h3>
-            <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 15px;">Ingresa el número o correo del usuario:</p>
-            <input type="text" id="sync-input" placeholder="Ej. 04127780654..." style="margin-bottom: 15px;">
-            <div style="display: flex; gap: 10px;">
-                <button class="btn-submit" onclick="sincronizarContacto()" style="margin-top:0;">Agregar</button>
-                <button type="button" onclick="cerrarSincronizacion()" style="padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer;">Cancelar</button>
+            <h3 style="margin-bottom: 15px; color: #a855f7;">Publicar Estado</h3>
+            <div class="form-group">
+                <label>Seleccionar Imagen o Video</label>
+                <input type="file" id="status-media-file" accept="image/*,video/*" onchange="previewStatusMedia(event)">
+            </div>
+            <div class="form-group">
+                <label>Texto / Comentario (Opcional)</label>
+                <input type="text" id="status-text-input" placeholder="Escribe un comentario...">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-submit" onclick="guardarEstado()" style="margin-top:0;">Publicar</button>
+                <button type="button" onclick="cerrarModalPublicarEstado()" style="padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer;">Cancelar</button>
             </div>
         </div>
     </div>
 
-    <!-- JAVASCRIPT DE FUNCIONALIDAD -->
+    <!-- MODAL VER ESTADO -->
+    <div class="modal" id="view-status-modal">
+        <div class="modal-content" style="text-align:center;">
+            <h3 id="status-view-title" style="color: #a855f7;">Estado</h3>
+            <p id="status-view-text" style="font-size:0.9rem; color:#cbd5e1; margin-top:5px;"></p>
+            <div id="status-view-media-container"></div>
+            <button type="button" onclick="cerrarModalVerEstado()" style="margin-top:15px; padding: 10px 20px; background: #a855f7; border: none; color: white; border-radius: 12px; cursor: pointer; width:100%;">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- MODAL SINCRONIZAR CONTACTO Y QR -->
+    <div class="modal" id="sync-modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px; color: #a855f7;">Agregar Contacto / QR</h3>
+            
+            <div class="tabs">
+                <button class="tab-btn active" id="tab-sync-num" onclick="setSyncMode('num')">Sincronizar</button>
+                <button class="tab-btn" id="tab-sync-qr" onclick="setSyncMode('qr')">Mi Código QR</button>
+            </div>
+
+            <div id="sync-sec-num">
+                <div class="form-group">
+                    <label>Ingresa número o correo del usuario</label>
+                    <input type="text" id="sync-input" placeholder="Ingrese número o correo">
+                </div>
+                <button class="btn-submit" onclick="sincronizarContacto()">Agregar Amigo</button>
+            </div>
+
+            <div id="sync-sec-qr" style="display:none;" class="qr-box">
+                <p style="font-size:0.85rem; color:#aaa; text-align:center;">Escanea este código para agregarme en Spatial Network:</p>
+                <canvas id="qr-canvas"></canvas>
+            </div>
+
+            <button type="button" onclick="cerrarSincronizacion()" style="margin-top:15px; padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer; width:100%;">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT DE FUNCIONALIDAD Y PERSISTENCIA -->
     <script>
-        let perfilUsuario = {
-            nombre: "Moisés Carreño",
-            handle: "@Jack12747",
-            pensamiento: "Ahora mismo estoy...",
-            fotoData: null
-        };
+        // ESTADO GLOBAL CON PERSISTENCIA
+        let usuarioActual = JSON.parse(localStorage.getItem('spatial_user')) || null;
+        let contactosBD = JSON.parse(localStorage.getItem('spatial_contacts')) || [];
+        let chatsBD = JSON.parse(localStorage.getItem('spatial_chats')) || {};
+        let estadosBD = JSON.parse(localStorage.getItem('spatial_statuses')) || [];
 
         let tempAvatarData = null;
-        let chatActualNombre = "";
+        let tempStatusMediaData = null;
+        let tempStatusMediaType = "";
+        let chatActualKey = "";
+
+        // INICIALIZAR AL CÁRGAR PÁGINA
+        window.onload = function() {
+            if (usuarioActual) {
+                mostrarAppPrincipal();
+            }
+        };
 
         function setModo(modo) {
             const btnLogin = document.getElementById('tab-login');
@@ -484,23 +469,48 @@ def portada():
 
         function procesarAuth(event) {
             event.preventDefault();
-            const regName = document.getElementById('reg-name').value;
-            const regHandle = document.getElementById('reg-handle').value;
+            const regName = document.getElementById('reg-name').value.trim();
+            const regHandle = document.getElementById('reg-handle').value.trim();
+            const identificador = document.getElementById('identificador').value.trim();
             
-            if (regName) perfilUsuario.nombre = regName;
-            if (regHandle) perfilUsuario.handle = regHandle.startsWith('@') ? regHandle : '@' + regHandle;
+            usuarioActual = {
+                nombre: regName || "Usuario",
+                handle: regHandle ? (regHandle.startsWith('@') ? regHandle : '@' + regHandle) : "@usuario",
+                contacto: identificador,
+                privacidadContacto: "privado", // "publico" o "privado"
+                pensamiento: "¡Hola! Estoy usando Spatial Network",
+                fotoData: null
+            };
 
-            actualizarPerfilDOM();
-
-            document.getElementById('auth-view').style.display = 'none';
-            document.getElementById('app-view').style.display = 'flex';
+            guardarSesion();
+            mostrarAppPrincipal();
         }
 
-        // EDICIÓN DE PERFIL
+        function guardarSesion() {
+            localStorage.setItem('spatial_user', JSON.stringify(usuarioActual));
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem('spatial_user');
+            location.reload();
+        }
+
+        function mostrarAppPrincipal() {
+            document.getElementById('auth-view').style.display = 'none';
+            document.getElementById('app-view').style.display = 'flex';
+            actualizarPerfilDOM();
+            renderizarContactos();
+            renderizarChats();
+            renderizarEstados();
+        }
+
+        // PERFIL Y CONFIGURACIÓN
         function abrirModalEditarPerfil() {
-            document.getElementById('edit-name-input').value = perfilUsuario.nombre;
-            document.getElementById('edit-handle-input').value = perfilUsuario.handle;
-            document.getElementById('edit-thought-input').value = perfilUsuario.pensamiento;
+            document.getElementById('edit-name-input').value = usuarioActual.nombre;
+            document.getElementById('edit-handle-input').value = usuarioActual.handle;
+            document.getElementById('edit-contact-input').value = usuarioActual.contacto || "";
+            document.getElementById('edit-privacy-select').value = usuarioActual.privacidadContacto || "privado";
+            document.getElementById('edit-thought-input').value = usuarioActual.pensamiento || "";
             document.getElementById('edit-profile-modal').style.display = 'flex';
         }
 
@@ -520,32 +530,301 @@ def portada():
         }
 
         function guardarPerfil() {
-            perfilUsuario.nombre = document.getElementById('edit-name-input').value;
-            perfilUsuario.handle = document.getElementById('edit-handle-input').value;
-            perfilUsuario.pensamiento = document.getElementById('edit-thought-input').value;
+            usuarioActual.nombre = document.getElementById('edit-name-input').value;
+            usuarioActual.handle = document.getElementById('edit-handle-input').value;
+            usuarioActual.contacto = document.getElementById('edit-contact-input').value;
+            usuarioActual.privacidadContacto = document.getElementById('edit-privacy-select').value;
+            usuarioActual.pensamiento = document.getElementById('edit-thought-input').value;
+            
             if (tempAvatarData) {
-                perfilUsuario.fotoData = tempAvatarData;
+                usuarioActual.fotoData = tempAvatarData;
             }
 
+            guardarSesion();
             actualizarPerfilDOM();
             cerrarModalEditarPerfil();
         }
 
         function actualizarPerfilDOM() {
-            document.getElementById('profile-lg-name').innerText = perfilUsuario.nombre;
-            document.getElementById('profile-lg-handle').innerText = perfilUsuario.handle;
-            document.getElementById('profile-thought-text').innerText = perfilUsuario.pensamiento;
-            document.getElementById('contact-self-name').innerText = perfilUsuario.nombre + " (Tú)";
+            document.getElementById('profile-lg-name').innerText = usuarioActual.nombre;
+            document.getElementById('profile-lg-handle').innerText = usuarioActual.handle;
+            document.getElementById('profile-thought-text').innerText = usuarioActual.pensamiento;
+            document.getElementById('profile-lg-contact').innerText = "Contacto: " + (usuarioActual.privacidadContacto === "publico" ? usuarioActual.contacto : "Privado 🔒");
+            document.getElementById('contact-self-name').innerText = usuarioActual.nombre + " (Tú)";
 
-            if (perfilUsuario.fotoData) {
-                const imgHTML = `<img src="${perfilUsuario.fotoData}">`;
+            if (usuarioActual.fotoData) {
+                const imgHTML = `<img src="${usuarioActual.fotoData}">`;
                 document.getElementById('profile-lg-box').innerHTML = imgHTML;
                 document.getElementById('contact-self-avatar').innerHTML = imgHTML;
                 document.getElementById('my-status-avatar-box').innerHTML = imgHTML + `<div class="add-status-badge">+</div>`;
             }
         }
 
-        // CAMBIO DE SECCIONES
+        // ESTADOS (IMAGEN/VIDEO)
+        function abrirModalPublicarEstado() {
+            document.getElementById('publish-status-modal').style.display = 'flex';
+        }
+
+        function cerrarModalPublicarEstado() {
+            document.getElementById('publish-status-modal').style.display = 'none';
+            tempStatusMediaData = null;
+        }
+
+        function previewStatusMedia(event) {
+            const file = event.target.files[0];
+            if (file) {
+                tempStatusMediaType = file.type.startsWith('video') ? 'video' : 'image';
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    tempStatusMediaData = e.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function guardarEstado() {
+            const texto = document.getElementById('status-text-input').value;
+            if (!tempStatusMediaData && !texto) {
+                alert("Por favor selecciona un archivo o escribe un texto.");
+                return;
+            }
+
+            const nuevoEstado = {
+                id: Date.now(),
+                usuario: usuarioActual.nombre,
+                fotoPerfil: usuarioActual.fotoData,
+                media: tempStatusMediaData,
+                tipoMedia: tempStatusMediaType,
+                texto: texto,
+                hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            estadosBD.unshift(nuevoEstado);
+            localStorage.setItem('spatial_statuses', JSON.stringify(estadosBD));
+            renderizarEstados();
+            cerrarModalPublicarEstado();
+        }
+
+        function renderizarEstados() {
+            const container = document.getElementById('status-list-container');
+            if (estadosBD.length === 0) {
+                container.innerHTML = '<div class="empty-state">No hay estados recientes.</div>';
+                return;
+            }
+
+            container.innerHTML = "";
+            estadosBD.forEach(st => {
+                const item = document.createElement('div');
+                item.className = 'chat-item';
+                item.onclick = function() { verEstado(st); };
+                item.innerHTML = `
+                    <div class="status-ring">
+                        <div class="avatar">${st.fotoPerfil ? `<img src="${st.fotoPerfil}">` : '👤'}</div>
+                    </div>
+                    <div class="chat-info">
+                        <span class="chat-name">${st.usuario}</span>
+                        <span class="chat-time">${st.hora}</span>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function verEstado(st) {
+            document.getElementById('status-view-title').innerText = "Estado de " + st.usuario;
+            document.getElementById('status-view-text').innerText = st.texto || "";
+            
+            const mediaBox = document.getElementById('status-view-media-container');
+            mediaBox.innerHTML = "";
+
+            if (st.media) {
+                if (st.tipoMedia === 'video') {
+                    mediaBox.innerHTML = `<video src="${st.media}" class="status-viewer-media" controls autoplay></video>`;
+                } else {
+                    mediaBox.innerHTML = `<img src="${st.media}" class="status-viewer-media">`;
+                }
+            }
+
+            document.getElementById('view-status-modal').style.display = 'flex';
+        }
+
+        function cerrarModalVerEstado() {
+            document.getElementById('view-status-modal').style.display = 'none';
+        }
+
+        // CHATS Y CONTACTOS
+        function abrirSincronizacion() {
+            document.getElementById('sync-modal').style.display = 'flex';
+            generarQR();
+        }
+
+        function cerrarSincronizacion() {
+            document.getElementById('sync-modal').style.display = 'none';
+        }
+
+        function setSyncMode(modo) {
+            document.getElementById('tab-sync-num').classList.toggle('active', modo === 'num');
+            document.getElementById('tab-sync-qr').classList.toggle('active', modo === 'qr');
+            document.getElementById('sync-sec-num').style.display = modo === 'num' ? 'block' : 'none';
+            document.getElementById('sync-sec-qr').style.display = modo === 'qr' ? 'flex' : 'none';
+        }
+
+        function generarQR() {
+            if (usuarioActual) {
+                new QRious({
+                    element: document.getElementById('qr-canvas'),
+                    value: usuarioActual.handle + "|" + usuarioActual.contacto,
+                    size: 180
+                });
+            }
+        }
+
+        function sincronizarContacto() {
+            const val = document.getElementById('sync-input').value.trim();
+            if (!val) return;
+
+            const nuevoContacto = {
+                id: "c_" + Date.now(),
+                nombre: val,
+                contacto: val,
+                privacidadContacto: "publico", // O visible por ser agregado directo
+                avatar: "👤"
+            };
+
+            contactosBD.push(nuevoContacto);
+            localStorage.setItem('spatial_contacts', JSON.stringify(contactosBD));
+            
+            renderizarContactos();
+            document.getElementById('sync-input').value = '';
+            cerrarSincronizacion();
+            abrirChat(nuevoContacto);
+        }
+
+        function renderizarContactos() {
+            const container = document.getElementById('contacts-list-container');
+            const selfItem = container.firstElementChild; 
+            container.innerHTML = "";
+            container.appendChild(selfItem);
+
+            contactosBD.forEach(c => {
+                const item = document.createElement('div');
+                item.className = 'chat-item';
+                item.onclick = function() { abrirChat(c); };
+                item.innerHTML = `
+                    <div class="avatar">${c.avatar.startsWith('data:') ? `<img src="${c.avatar}">` : '👤'}</div>
+                    <div class="chat-info">
+                        <span class="chat-name">${c.nombre}</span>
+                        <span class="chat-preview">${c.contacto}</span>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function renderizarChats() {
+        const container = document.getElementById('chats-container');
+            const keys = Object.keys(chatsBD);
+
+            if (keys.length === 0) {
+                container.innerHTML = '<div class="empty-state">No tienes chats iniciados.<br>Agrega contactos o escanea un QR para comenzar.</div>';
+                return;
+            }
+
+            container.innerHTML = "";
+            keys.forEach(k => {
+                const chat = chatsBD[k];
+                const ultimoMsg = chat.mensajes.length > 0 ? chat.mensajes[chat.mensajes.length - 1].texto : "Sin mensajes";
+                const item = document.createElement('div');
+                item.className = 'chat-item';
+                item.onclick = function() { abrirChat(chat.contactoObj); };
+                item.innerHTML = `
+                    <div class="avatar">${chat.contactoObj.avatar && chat.contactoObj.avatar.startsWith('data:') ? `<img src="${chat.contactoObj.avatar}">` : '👤'}</div>
+                    <div class="chat-info">
+                        <div class="chat-top-line">
+                            <span class="chat-name">${chat.contactoObj.nombre}</span>
+                            <span class="chat-time">${chat.mensajes.length > 0 ? chat.mensajes[chat.mensajes.length - 1].hora : ''}</span>
+                        </div>
+                        <span class="chat-preview">${ultimoMsg}</span>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function abrirChat(contactoObj) {
+            chatActualKey = contactoObj.id || contactoObj.nombre;
+            
+            if (!chatsBD[chatActualKey]) {
+                chatsBD[chatActualKey] = {
+                    contactoObj: contactoObj,
+                    mensajes: []
+                };
+            }
+
+            const infoContacto = contactoObj.privacidadContacto === "publico" ? contactoObj.contacto : "🔒 Privado";
+            document.getElementById('room-name').innerText = contactoObj.nombre;
+            document.getElementById('room-status').innerText = infoContacto;
+
+            const avatarBox = document.getElementById('room-avatar');
+            if (contactoObj.avatar && contactoObj.avatar.startsWith('data:')) {
+                avatarBox.innerHTML = `<img src="${contactoObj.avatar}">`;
+            } else {
+                avatarBox.innerText = "👤";
+            }
+
+            cargarMensajesDOM();
+            document.getElementById('chat-room-view').style.display = 'flex';
+        }
+
+        function abrirMiChatPropio() {
+            abrirChat({
+                id: "self",
+                nombre: usuarioActual.nombre + " (Tú)",
+                contacto: usuarioActual.contacto,
+                privacidadContacto: usuarioActual.privacidadContacto,
+                avatar: usuarioActual.fotoData || "👤"
+            });
+        }
+
+        function cerrarChat() {
+            document.getElementById('chat-room-view').style.display = 'none';
+            renderizarChats();
+        }
+
+        function enviarMensaje() {
+            const input = document.getElementById('input-msg');
+            const texto = input.value.trim();
+            if (!texto || !chatActualKey) return;
+
+            const nuevoMsg = {
+                emisor: usuarioActual.nombre,
+                texto: texto,
+                hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            chatsBD[chatActualKey].mensajes.push(nuevoMsg);
+            localStorage.setItem('spatial_chats', JSON.stringify(chatsBD));
+
+            input.value = "";
+            cargarMensajesDOM();
+        }
+
+        function cargarMensajesDOM() {
+            const msgBox = document.getElementById('room-messages');
+            msgBox.innerHTML = "";
+
+            const lista = chatsBD[chatActualKey].mensajes;
+            lista.forEach(m => {
+                const bubble = document.createElement('div');
+                bubble.className = 'msg-bubble ' + (m.emisor === usuarioActual.nombre ? 'sent' : 'received');
+                bubble.innerText = m.texto;
+                msgBox.appendChild(bubble);
+            });
+
+            msgBox.scrollTop = msgBox.scrollHeight;
+        }
+
+        // NAVEGACIÓN
         function cambiarSeccion(seccionId, elementoTab) {
             document.querySelectorAll('.section-view').forEach(sec => sec.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
@@ -554,131 +833,13 @@ def portada():
             if (elementoTab) elementoTab.classList.add('active');
         }
 
-        // VISTA CHAT INDIVIDUAL
-        function abrirChat(nombre, avatar, estado) {
-            chatActualNombre = nombre;
-            document.getElementById('room-name').innerText = nombre;
-            document.getElementById('room-status').innerText = estado || 'En línea';
-            
-            const avatarBox = document.getElementById('room-avatar');
-            if (avatar.startsWith('data:image') || avatar.startsWith('http')) {
-                avatarBox.innerHTML = `<img src="${avatar}">`;
-            } else {
-                avatarBox.innerText = avatar;
-            }
-
-            const msgBox = document.getElementById('room-messages');
-            msgBox.innerHTML = `<div class="msg-bubble received">¡Hola! Has iniciado conversación con ${nombre}.</div>`;
-
-            document.getElementById('chat-room-view').style.display = 'flex';
-        }
-
-        function abrirMiChatPropio() {
-            abrirChat(perfilUsuario.nombre + " (Tú)", perfilUsuario.fotoData || "👤", "Espacio personal");
-        }
-
-        function cerrarChat() {
-            document.getElementById('chat-room-view').style.display = 'none';
-        }
-
-        function enviarMensaje() {
-            const input = document.getElementById('input-msg');
-            const texto = input.value.trim();
-            if (texto === "") return;
-
-            const msgBox = document.getElementById('room-messages');
-            const miMsg = document.createElement('div');
-            miMsg.className = 'msg-bubble sent';
-            miMsg.innerText = texto;
-            msgBox.appendChild(miMsg);
-
-            input.value = "";
-            msgBox.scrollTop = msgBox.scrollHeight;
-
-            if (chatActualNombre === "Amiti Soporte") {
-                setTimeout(() => {
-                    const reply = document.createElement('div');
-                    reply.className = 'msg-bubble received';
-                    reply.innerText = "He recibido tu reporte. El sistema principal lo está procesando.";
-                    msgBox.appendChild(reply);
-                    msgBox.scrollTop = msgBox.scrollHeight;
-                }, 1000);
-            }
-        }
-
-        // SINCRONIZAR
-        function abrirSincronizacion() {
-            document.getElementById('sync-modal').style.display = 'flex';
-        }
-
-        function cerrarSincronizacion() {
-            document.getElementById('sync-modal').style.display = 'none';
-        }
-
-        function sincronizarContacto() {
-            const val = document.getElementById('sync-input').value.trim();
-            if (val) {
-                const container = document.getElementById('contacts-container') || document.getElementById('chats-container');
-                const nuevoItem = document.createElement('div');
-                const inicial = val.charAt(0).toUpperCase();
-
-                nuevoItem.className = 'chat-item';
-                nuevoItem.onclick = function() { abrirChat(val, inicial, 'Contacto Vinculado'); };
-
-                nuevoItem.innerHTML = `
-                    <div class="avatar">${inicial}</div>
-                    <div class="chat-info">
-                        <div class="chat-top-line">
-                            <span class="chat-name">${val}</span>
-                            <span class="chat-time">Ahora</span>
-                        </div>
-                        <span class="chat-preview">Contacto vinculado correctamente</span>
-                    </div>
-                `;
-
-                container.appendChild(nuevoItem);
-                document.getElementById('sync-input').value = '';
-                cerrarSincronizacion();
-                abrirChat(val, inicial, 'Contacto Vinculado');
-            }
-        }
-
-        // FILTRO DE BUSQUEDA
         function filtrarLista(texto, containerId) {
             const filtro = texto.toLowerCase();
             const items = document.getElementById(containerId).getElementsByClassName('chat-item');
             for (let item of items) {
                 const nombre = item.querySelector('.chat-name')?.innerText.toLowerCase() || "";
-                if (nombre.includes(filtro)) {
-                    item.style.display = "flex";
-                } else {
-                    item.style.display = "none";
-                }
+                item.style.display = nombre.includes(filtro) ? "flex" : "none";
             }
-        }
-
-        function subirEstadoPrompt() {
-            const texto = prompt("Escribe tu nuevo estado (desaparecerá en 24h):");
-            if (texto) {
-                const list = document.getElementById('status-list-container');
-                const item = document.createElement('div');
-                item.className = 'chat-item';
-                item.onclick = function() { verEstado(perfilUsuario.nombre, texto); };
-                item.innerHTML = `
-                    <div class="status-ring">
-                        <div class="avatar">${perfilUsuario.fotoData ? `<img src="${perfilUsuario.fotoData}">` : '👤'}</div>
-                    </div>
-                    <div class="chat-info">
-                        <span class="chat-name">${perfilUsuario.nombre} (Tú)</span>
-                        <span class="chat-time">Hace un momento</span>
-                    </div>
-                `;
-                list.prepend(item);
-            }
-        }
-
-        function verEstado(nombre, contenido) {
-            alert(`Estado de ${nombre}:\n\n"${contenido}"`);
         }
     </script>
 </body>
