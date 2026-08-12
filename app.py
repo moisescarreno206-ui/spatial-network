@@ -40,7 +40,7 @@ def portada():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spatial Network</title>
     <link rel="manifest" href="/manifest.json">
-    <!-- Librerías para QR Code -->
+    <!-- Librerías para QR Code y Escáner de Cámara -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -54,7 +54,7 @@ def portada():
         p.sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 20px; }
         
         .tabs { display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 20px; }
-        .tab-btn { flex: 1; padding: 10px; background: none; border: none; color: #94a3b8; font-size: 0.95rem; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn { flex: 1; padding: 10px; background: none; border: none; color: #94a3b8; font-size: 0.85rem; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
         .tab-btn.active { color: #a855f7; border-bottom-color: #a855f7; }
         
         .form-group { margin-bottom: 15px; text-align: left; }
@@ -88,6 +88,8 @@ def portada():
         .chat-time { font-size: 0.75rem; color: #64748b; }
         .chat-preview { font-size: 0.85rem; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+        .badge-type { background: rgba(168, 85, 247, 0.2); color: #c084fc; font-size: 0.68rem; padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(168, 85, 247, 0.4); margin-left: 6px; }
+
         .empty-state { padding: 40px 20px; text-align: center; color: #64748b; font-size: 0.9rem; }
 
         /* FAB */
@@ -98,8 +100,8 @@ def portada():
         .status-ring { padding: 2px; border: 2px solid #a855f7; border-radius: 50%; }
         .add-status-badge { position: absolute; bottom: 0; right: 0; background: #a855f7; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; border: 2px solid #090a10; }
 
-        /* CONTACTOS */
-        .action-item { display: flex; align-items: center; padding: 14px 16px; gap: 15px; cursor: pointer; }
+        /* ACCIONES Y LISTAS */
+        .action-item { display: flex; align-items: center; padding: 12px 16px; gap: 15px; cursor: pointer; border-bottom: 1px solid #121420; }
         .action-icon { width: 44px; height: 44px; background: rgba(168, 85, 247, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #a855f7; }
         .action-text { font-weight: 600; font-size: 0.95rem; color: #f1f5f9; }
 
@@ -145,6 +147,8 @@ def portada():
         .qr-box { display: flex; flex-direction: column; align-items: center; gap: 15px; margin: 15px 0; }
         .qr-box canvas { background: white; padding: 10px; border-radius: 12px; }
         
+        #qr-reader { width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #a855f7; margin-top: 10px; }
+        
         .status-viewer-media { width: 100%; max-height: 350px; object-fit: contain; border-radius: 12px; margin-top: 10px; }
     </style>
 </head>
@@ -189,7 +193,8 @@ def portada():
         <div class="header-app">
             <span class="header-title" id="header-main-title">Spatial Network</span>
             <div class="header-icons">
-                <span onclick="abrirSincronizacion()" title="Sincronizar contacto">➕</span>
+                <span onclick="abrirSincronizacion('scan')" title="Escanear QR">📷</span>
+                <span onclick="abrirSincronizacion('num')" title="Agregar contacto">➕</span>
                 <span onclick="abrirModalEditarPerfil()" title="Editar Perfil">✏️</span>
             </div>
         </div>
@@ -201,7 +206,7 @@ def portada():
             </div>
 
             <div class="chat-list" id="chats-container">
-                <div class="empty-state">No tienes chats iniciados.<br>Agrega contactos o escanea un QR para comenzar.</div>
+                <div class="empty-state">No tienes chats iniciados.<br>Agrega contactos, grupos o escanea un QR.</div>
             </div>
 
             <div class="fab" onclick="cambiarSeccion('sec-contactos', document.querySelectorAll('.nav-item')[2])">💬</div>
@@ -228,18 +233,28 @@ def portada():
             </div>
         </div>
 
-        <!-- PANTALLA 3: CONTACTOS -->
+        <!-- PANTALLA 3: CONTACTOS, GRUPOS Y COMUNIDADES -->
         <div class="section-view" id="sec-contactos">
             <div class="search-box">
-                <input type="text" class="search-input" placeholder="🔍 Buscar contactos..." onkeyup="filtrarLista(this.value, 'contacts-list-container')">
+                <input type="text" class="search-input" placeholder="🔍 Buscar contactos o comunidades..." onkeyup="filtrarLista(this.value, 'contacts-list-container')">
             </div>
 
-            <div class="action-item" onclick="abrirSincronizacion()">
+            <div class="action-item" onclick="abrirSincronizacion('num')">
                 <div class="action-icon">👤➕</div>
-                <span class="action-text">Nuevo contacto / Escanear QR</span>
+                <span class="action-text">Nuevo Contacto / Escanear QR</span>
             </div>
 
-            <div class="section-subtitle">Contactos Sincronizados</div>
+            <div class="action-item" onclick="abrirModalCrearGrupo()">
+                <div class="action-icon">👥➕</div>
+                <span class="action-text">Crear Grupo</span>
+            </div>
+
+            <div class="action-item" onclick="abrirModalCrearComunidad()">
+                <div class="action-icon">🌐➕</div>
+                <span class="action-text">Crear Comunidad</span>
+            </div>
+
+            <div class="section-subtitle">Contactos y Espacios Sincronizados</div>
             <div class="chat-list" id="contacts-list-container">
                 <div class="chat-item" onclick="abrirMiChatPropio()">
                     <div class="avatar" id="contact-self-avatar">👤</div>
@@ -253,7 +268,6 @@ def portada():
 
         <!-- PANTALLA 4: MENÚ / PERFIL -->
         <div class="section-view" id="sec-perfil">
-            <!-- Al hacer clic en el nombre o perfil, se abre directamente la edición -->
             <div class="profile-header-card" onclick="abrirModalEditarPerfil()">
                 <div class="status-thought-bubble">
                     💭 <span id="profile-thought-text">Ahora mismo estoy...</span>
@@ -274,11 +288,25 @@ def portada():
                         <span class="setting-desc">Foto, nombre, usuario y privacidad</span>
                     </div>
                 </div>
-                <div class="setting-card" onclick="abrirSincronizacion()">
+                <div class="setting-card" onclick="abrirSincronizacion('qr')">
                     <div class="setting-icon">📱</div>
                     <div class="setting-info">
-                        <span class="setting-title">Mi Código QR</span>
-                        <span class="setting-desc">Muestra tu código para añadir amigos</span>
+                        <span class="setting-title">Mi Código QR / Escáner</span>
+                        <span class="setting-desc">Muestra o escanea un código con tu cámara</span>
+                    </div>
+                </div>
+                <div class="setting-card" onclick="abrirModalCrearGrupo()">
+                    <div class="setting-icon">👥</div>
+                    <div class="setting-info">
+                        <span class="setting-title">Crear Nuevo Grupo</span>
+                        <span class="setting-desc">Chatea con múltiples personas</span>
+                    </div>
+                </div>
+                <div class="setting-card" onclick="abrirModalCrearComunidad()">
+                    <div class="setting-icon">🌐</div>
+                    <div class="setting-info">
+                        <span class="setting-title">Crear Comunidad</span>
+                        <span class="setting-desc">Organiza canales y salas temáticas</span>
                     </div>
                 </div>
                 <div class="setting-card" onclick="cerrarSesion()" style="border-color: rgba(239, 68, 68, 0.3);">
@@ -291,7 +319,7 @@ def portada():
             </div>
         </div>
 
-        <!-- VISTA SALA DE CHAT INDIVIDUAL -->
+        <!-- VISTA SALA DE CHAT INDIVIDUAL O GRUPAL -->
         <div id="chat-room-view">
             <div class="chat-room-header">
                 <button class="back-btn" onclick="cerrarChat()">←</button>
@@ -310,7 +338,7 @@ def portada():
             </div>
         </div>
 
-         <!-- BARRA DE NAVEGACIÓN INFERIOR -->
+        <!-- BARRA DE NAVEGACIÓN INFERIOR -->
         <div class="nav-bar">
             <div class="nav-item active" onclick="cambiarSeccion('sec-chats', this)">
                 <span class="icon">💬</span>
@@ -369,7 +397,7 @@ def portada():
         </div>
     </div>
 
-    <!-- MODAL PUBLICAR ESTADO (IMAGEN/VIDEO) -->
+    <!-- MODAL PUBLICAR ESTADO -->
     <div class="modal" id="publish-status-modal">
         <div class="modal-content">
             <h3 style="margin-bottom: 15px; color: #a855f7;">Publicar Estado</h3>
@@ -388,6 +416,44 @@ def portada():
         </div>
     </div>
 
+    <!-- MODAL CREAR GRUPO -->
+    <div class="modal" id="create-group-modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px; color: #a855f7;">Crear Nuevo Grupo</h3>
+            <div class="form-group">
+                <label>Nombre del Grupo</label>
+                <input type="text" id="group-name-input" placeholder="Ej. Equipo Spatial">
+            </div>
+            <div class="form-group">
+                <label>Descripción</label>
+                <input type="text" id="group-desc-input" placeholder="Propósito del grupo...">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-submit" onclick="crearGrupo()" style="margin-top:0;">Crear Grupo</button>
+                <button type="button" onclick="cerrarModalCrearGrupo()" style="padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CREAR COMUNIDAD -->
+    <div class="modal" id="create-community-modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px; color: #a855f7;">Crear Comunidad</h3>
+            <div class="form-group">
+                <label>Nombre de la Comunidad</label>
+                <input type="text" id="community-name-input" placeholder="Ej. Developers Latam">
+            </div>
+            <div class="form-group">
+                <label>Descripción de la Comunidad</label>
+                <textarea id="community-desc-input" rows="3" placeholder="Información temática..."></textarea>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn-submit" onclick="crearComunidad()" style="margin-top:0;">Crear Comunidad</button>
+                <button type="button" onclick="cerrarModalCrearComunidad()" style="padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL VER ESTADO -->
     <div class="modal" id="view-status-modal">
         <div class="modal-content" style="text-align:center;">
@@ -398,36 +464,45 @@ def portada():
         </div>
     </div>
 
-    <!-- MODAL SINCRONIZAR CONTACTO Y QR -->
+    <!-- MODAL SINCRONIZAR, MI QR Y ESCÁNER DE CÁMARA -->
     <div class="modal" id="sync-modal">
         <div class="modal-content">
-            <h3 style="margin-bottom: 15px; color: #a855f7;">Agregar Contacto / QR</h3>
+            <h3 style="margin-bottom: 15px; color: #a855f7;">Sincronizar y QR</h3>
             
             <div class="tabs">
-                <button class="tab-btn active" id="tab-sync-num" onclick="setSyncMode('num')">Sincronizar</button>
-                <button class="tab-btn" id="tab-sync-qr" onclick="setSyncMode('qr')">Mi Código QR</button>
+                <button class="tab-btn active" id="tab-sync-num" onclick="setSyncMode('num')">Agregar</button>
+                <button class="tab-btn" id="tab-sync-qr" onclick="setSyncMode('qr')">Mi QR</button>
+                <button class="tab-btn" id="tab-sync-scan" onclick="setSyncMode('scan')">Escanear</button>
             </div>
 
+            <!-- TAB 1: INGRESAR MANUAL -->
             <div id="sync-sec-num">
                 <div class="form-group">
-                    <label>Ingresa número o correo del usuario</label>
+                    <label>Ingresa el número o correo del usuario</label>
                     <input type="text" id="sync-input" placeholder="Ingrese número o correo">
                 </div>
                 <button class="btn-submit" onclick="sincronizarContacto()">Agregar Amigo</button>
             </div>
 
+            <!-- TAB 2: CÓDIGO QR GENERADO -->
             <div id="sync-sec-qr" style="display:none;" class="qr-box">
-                <p style="font-size:0.85rem; color:#aaa; text-align:center;">Escanea este código para agregarme en Spatial Network:</p>
+                <p style="font-size:0.85rem; color:#aaa; text-align:center;">Muestra este código para que te agreguen:</p>
                 <canvas id="qr-canvas"></canvas>
+            </div>
+
+            <!-- TAB 3: ESCÁNER DE CÁMARA QR -->
+            <div id="sync-sec-scan" style="display:none;">
+                <p style="font-size:0.85rem; color:#aaa; text-align:center;">Apunta con tu cámara al código QR de tu amigo:</p>
+                <div id="qr-reader"></div>
             </div>
 
             <button type="button" onclick="cerrarSincronizacion()" style="margin-top:15px; padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer; width:100%;">Cerrar</button>
         </div>
     </div>
 
-    <!-- JAVASCRIPT DE FUNCIONALIDAD Y PERSISTENCIA -->
+    <!-- JAVASCRIPT DE FUNCIONALIDAD, ESCÁNER Y PERSISTENCIA -->
     <script>
-        // ESTADO GLOBAL CON PERSISTENCIA
+        // ESTADO GLOBAL CON PERSISTENCIA LOCAL
         let usuarioActual = JSON.parse(localStorage.getItem('spatial_user')) || null;
         let contactosBD = JSON.parse(localStorage.getItem('spatial_contacts')) || [];
         let chatsBD = JSON.parse(localStorage.getItem('spatial_chats')) || {};
@@ -437,6 +512,7 @@ def portada():
         let tempStatusMediaData = null;
         let tempStatusMediaType = "";
         let chatActualKey = "";
+        let html5QrCodeScanner = null;
 
         // INICIALIZAR AL CÁRGAR PÁGINA
         window.onload = function() {
@@ -477,7 +553,7 @@ def portada():
                 nombre: regName || "Usuario",
                 handle: regHandle ? (regHandle.startsWith('@') ? regHandle : '@' + regHandle) : "@usuario",
                 contacto: identificador,
-                privacidadContacto: "privado", // "publico" o "privado"
+                privacidadContacto: "privado",
                 pensamiento: "¡Hola! Estoy usando Spatial Network",
                 fotoData: null
             };
@@ -504,7 +580,7 @@ def portada():
             renderizarEstados();
         }
 
-        // PERFIL Y CONFIGURACIÓN
+        // PERFIL
         function abrirModalEditarPerfil() {
             document.getElementById('edit-name-input').value = usuarioActual.nombre;
             document.getElementById('edit-handle-input').value = usuarioActual.handle;
@@ -560,7 +636,72 @@ def portada():
             }
         }
 
-        // ESTADOS (IMAGEN/VIDEO)
+        // GRUPOS Y COMUNIDADES
+        function abrirModalCrearGrupo() {
+            document.getElementById('create-group-modal').style.display = 'flex';
+        }
+
+        function cerrarModalCrearGrupo() {
+            document.getElementById('create-group-modal').style.display = 'none';
+        }
+
+        function crearGrupo() {
+            const nombre = document.getElementById('group-name-input').value.trim();
+            const desc = document.getElementById('group-desc-input').value.trim();
+
+            if (!nombre) return;
+
+            const grupoObj = {
+                id: "g_" + Date.now(),
+                nombre: nombre,
+                contacto: desc || "Grupo público",
+                tipo: "Grupo",
+                avatar: "👥"
+            };
+
+            contactosBD.push(grupoObj);
+            localStorage.setItem('spatial_contacts', JSON.stringify(contactosBD));
+            
+            renderizarContactos();
+            document.getElementById('group-name-input').value = "";
+            document.getElementById('group-desc-input').value = "";
+            cerrarModalCrearGrupo();
+            abrirChat(grupoObj);
+        }
+
+        function abrirModalCrearComunidad() {
+            document.getElementById('create-community-modal').style.display = 'flex';
+        }
+
+        function cerrarModalCrearComunidad() {
+            document.getElementById('create-community-modal').style.display = 'none';
+        }
+
+        function crearComunidad() {
+            const nombre = document.getElementById('community-name-input').value.trim();
+            const desc = document.getElementById('community-desc-input').value.trim();
+
+            if (!nombre) return;
+
+            const comunidadObj = {
+                id: "com_" + Date.now(),
+                nombre: nombre,
+                contacto: desc || "Comunidad de Spatial",
+                tipo: "Comunidad",
+                avatar: "🌐"
+            };
+
+            contactosBD.push(comunidadObj);
+            localStorage.setItem('spatial_contacts', JSON.stringify(contactosBD));
+            
+            renderizarContactos();
+            document.getElementById('community-name-input').value = "";
+            document.getElementById('community-desc-input').value = "";
+            cerrarModalCrearComunidad();
+            abrirChat(comunidadObj);
+        }
+
+        // ESTADOS
         function abrirModalPublicarEstado() {
             document.getElementById('publish-status-modal').style.display = 'flex';
         }
@@ -584,10 +725,7 @@ def portada():
 
         function guardarEstado() {
             const texto = document.getElementById('status-text-input').value;
-            if (!tempStatusMediaData && !texto) {
-                alert("Por favor selecciona un archivo o escribe un texto.");
-                return;
-            }
+            if (!tempStatusMediaData && !texto) return;
 
             const nuevoEstado = {
                 id: Date.now(),
@@ -652,21 +790,34 @@ def portada():
             document.getElementById('view-status-modal').style.display = 'none';
         }
 
-        // CHATS Y CONTACTOS
-        function abrirSincronizacion() {
+        // ESCÁNER DE CÁMARA Y CÓDIGOS QR
+        function abrirSincronizacion(modoInicial = 'num') {
             document.getElementById('sync-modal').style.display = 'flex';
-            generarQR();
+            setSyncMode(modoInicial);
         }
 
         function cerrarSincronizacion() {
+            detenerEscanerCámara();
             document.getElementById('sync-modal').style.display = 'none';
         }
 
         function setSyncMode(modo) {
             document.getElementById('tab-sync-num').classList.toggle('active', modo === 'num');
             document.getElementById('tab-sync-qr').classList.toggle('active', modo === 'qr');
+            document.getElementById('tab-sync-scan').classList.toggle('active', modo === 'scan');
+
             document.getElementById('sync-sec-num').style.display = modo === 'num' ? 'block' : 'none';
             document.getElementById('sync-sec-qr').style.display = modo === 'qr' ? 'flex' : 'none';
+            document.getElementById('sync-sec-scan').style.display = modo === 'scan' ? 'block' : 'none';
+
+            if (modo === 'qr') {
+                generarQR();
+                detenerEscanerCámara();
+            } else if (modo === 'scan') {
+                iniciarEscanerCámara();
+            } else {
+                detenerEscanerCámara();
+            }
         }
 
         function generarQR() {
@@ -679,6 +830,52 @@ def portada():
             }
         }
 
+        function iniciarEscanerCámara() {
+            if (!html5QrCodeScanner) {
+                html5QrCodeScanner = new Html5Qrcode("qr-reader");
+            }
+
+            html5QrCodeScanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 220, height: 220 } },
+                (decodedText) => {
+                    procesarQREscaneado(decodedText);
+                },
+                () => {}
+            ).catch(err => {
+                console.error("Error al iniciar cámara: ", err);
+            });
+        }
+
+        function detenerEscanerCámara() {
+            if (html5QrCodeScanner && html5QrCodeScanner.isScanning) {
+                html5QrCodeScanner.stop().then(() => {
+                    html5QrCodeScanner.clear();
+                }).catch(err => console.error(err));
+            }
+        }
+
+        function procesarQREscaneado(codigoTexto) {
+            detenerEscanerCámara();
+            const partes = codigoTexto.split('|');
+            const handle = partes[0] || codigoTexto;
+            const contactoVal = partes[1] || codigoTexto;
+
+            const nuevoContacto = {
+                id: "c_" + Date.now(),
+                nombre: handle,
+                contacto: contactoVal,
+                privacidadContacto: "publico",
+                avatar: "👤"
+            };
+
+            contactosBD.push(nuevoContacto);
+            localStorage.setItem('spatial_contacts', JSON.stringify(contactosBD));
+            renderizarContactos();
+            cerrarSincronizacion();
+            abrirChat(nuevoContacto);
+        }
+
         function sincronizarContacto() {
             const val = document.getElementById('sync-input').value.trim();
             if (!val) return;
@@ -687,7 +884,7 @@ def portada():
                 id: "c_" + Date.now(),
                 nombre: val,
                 contacto: val,
-                privacidadContacto: "publico", // O visible por ser agregado directo
+                privacidadContacto: "publico",
                 avatar: "👤"
             };
 
@@ -700,6 +897,7 @@ def portada():
             abrirChat(nuevoContacto);
         }
 
+        // CHATS Y CONTACTOS
         function renderizarContactos() {
             const container = document.getElementById('contacts-list-container');
             const selfItem = container.firstElementChild; 
@@ -710,10 +908,11 @@ def portada():
                 const item = document.createElement('div');
                 item.className = 'chat-item';
                 item.onclick = function() { abrirChat(c); };
+                const tipoBadge = c.tipo ? `<span class="badge-type">${c.tipo}</span>` : '';
                 item.innerHTML = `
-                    <div class="avatar">${c.avatar.startsWith('data:') ? `<img src="${c.avatar}">` : '👤'}</div>
+                    <div class="avatar">${c.avatar.startsWith('data:') ? `<img src="${c.avatar}">` : c.avatar}</div>
                     <div class="chat-info">
-                        <span class="chat-name">${c.nombre}</span>
+                        <span class="chat-name">${c.nombre}${tipoBadge}</span>
                         <span class="chat-preview">${c.contacto}</span>
                     </div>
                 `;
@@ -722,11 +921,11 @@ def portada():
         }
 
         function renderizarChats() {
-        const container = document.getElementById('chats-container');
+            const container = document.getElementById('chats-container');
             const keys = Object.keys(chatsBD);
 
             if (keys.length === 0) {
-                container.innerHTML = '<div class="empty-state">No tienes chats iniciados.<br>Agrega contactos o escanea un QR para comenzar.</div>';
+                container.innerHTML = '<div class="empty-state">No tienes chats iniciados.<br>Agrega contactos, grupos o escanea un QR.</div>';
                 return;
             }
 
@@ -737,11 +936,12 @@ def portada():
                 const item = document.createElement('div');
                 item.className = 'chat-item';
                 item.onclick = function() { abrirChat(chat.contactoObj); };
+                const tipoBadge = chat.contactoObj.tipo ? `<span class="badge-type">${chat.contactoObj.tipo}</span>` : '';
                 item.innerHTML = `
-                    <div class="avatar">${chat.contactoObj.avatar && chat.contactoObj.avatar.startsWith('data:') ? `<img src="${chat.contactoObj.avatar}">` : '👤'}</div>
+                    <div class="avatar">${chat.contactoObj.avatar && chat.contactoObj.avatar.startsWith('data:') ? `<img src="${chat.contactoObj.avatar}">` : (chat.contactoObj.avatar || '👤')}</div>
                     <div class="chat-info">
                         <div class="chat-top-line">
-                            <span class="chat-name">${chat.contactoObj.nombre}</span>
+                            <span class="chat-name">${chat.contactoObj.nombre}${tipoBadge}</span>
                             <span class="chat-time">${chat.mensajes.length > 0 ? chat.mensajes[chat.mensajes.length - 1].hora : ''}</span>
                         </div>
                         <span class="chat-preview">${ultimoMsg}</span>
@@ -761,7 +961,7 @@ def portada():
                 };
             }
 
-            const infoContacto = contactoObj.privacidadContacto === "publico" ? contactoObj.contacto : "🔒 Privado";
+            const infoContacto = contactoObj.tipo ? contactoObj.contacto : (contactoObj.privacidadContacto === "publico" ? contactoObj.contacto : "🔒 Privado");
             document.getElementById('room-name').innerText = contactoObj.nombre;
             document.getElementById('room-status').innerText = infoContacto;
 
@@ -769,7 +969,7 @@ def portada():
             if (contactoObj.avatar && contactoObj.avatar.startsWith('data:')) {
                 avatarBox.innerHTML = `<img src="${contactoObj.avatar}">`;
             } else {
-                avatarBox.innerText = "👤";
+                avatarBox.innerText = contactoObj.avatar || "👤";
             }
 
             cargarMensajesDOM();
