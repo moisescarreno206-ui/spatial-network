@@ -92,8 +92,12 @@ def portada():
 
         .empty-state { padding: 40px 20px; text-align: center; color: #64748b; font-size: 0.9rem; }
 
-        /* FAB */
+        /* BOTONES FLOTANTES (FAB) */
         .fab { position: fixed; bottom: 80px; right: 20px; width: 56px; height: 56px; background: linear-gradient(135deg, #a855f7, #6366f1); border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; box-shadow: 0 8px 20px rgba(168, 85, 247, 0.5); cursor: pointer; z-index: 5; }
+        
+        /* BOTÓN FLOTANTE DE SOPORTE AMITI (ENCIMA DEL FAB DE CONTACTOS) */
+        .fab-support { position: fixed; bottom: 148px; right: 20px; width: 50px; height: 50px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: white; box-shadow: 0 6px 15px rgba(16, 185, 129, 0.4); cursor: pointer; z-index: 5; transition: transform 0.2s; }
+        .fab-support:active { transform: scale(0.92); }
 
         /* NOVEDADES / ESTADOS */
         .section-subtitle { padding: 15px 16px 5px; font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -150,6 +154,9 @@ def portada():
         #qr-reader { width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #a855f7; margin-top: 10px; }
         
         .status-viewer-media { width: 100%; max-height: 350px; object-fit: contain; border-radius: 12px; margin-top: 10px; }
+        
+        /* REPRODUCTOR DE VIDEO EMBUTIDO */
+        .video-player-frame { width: 100%; height: 210px; border-radius: 12px; border: none; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -209,6 +216,10 @@ def portada():
                 <div class="empty-state">No tienes chats iniciados.<br>Agrega contactos, grupos o escanea un QR.</div>
             </div>
 
+            <!-- GLOBO DE SOPORTE AMITI (ENCIMA DEL GLOBO DE AGREGAR CONTACTOS) -->
+            <div class="fab-support" onclick="abrirChatSoporteAmiti()" title="Soporte Técnico Amiti IA">🤖</div>
+            
+            <!-- GLOBO DE AGREGAR CONTACTOS -->
             <div class="fab" onclick="cambiarSeccion('sec-contactos', document.querySelectorAll('.nav-item')[2])">💬</div>
         </div>
 
@@ -237,6 +248,11 @@ def portada():
         <div class="section-view" id="sec-contactos">
             <div class="search-box">
                 <input type="text" class="search-input" placeholder="🔍 Buscar contactos o comunidades..." onkeyup="filtrarLista(this.value, 'contacts-list-container')">
+            </div>
+
+            <div class="action-item" onclick="abrirChatSoporteAmiti()">
+                <div class="action-icon">🤖</div>
+                <span class="action-text">Soporte Técnico Amiti IA</span>
             </div>
 
             <div class="action-item" onclick="abrirSincronizacion('num')">
@@ -281,6 +297,13 @@ def portada():
             </div>
 
             <div class="settings-list">
+                <div class="setting-card" onclick="abrirModalReproductorVideo()">
+                    <div class="setting-icon">🎬</div>
+                    <div class="setting-info">
+                        <span class="setting-title">Reproductor de Video</span>
+                        <span class="setting-desc">Ver videos de YouTube, TikTok o enlaces Web</span>
+                    </div>
+                </div>
                 <div class="setting-card" onclick="abrirModalEditarPerfil()">
                     <div class="setting-icon">✏️</div>
                     <div class="setting-info">
@@ -359,6 +382,22 @@ def portada():
         </div>
     </div>
 
+    <!-- MODAL REPRODUCTOR DE VIDEO MULTIPLATAFORMA -->
+    <div class="modal" id="video-player-modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 15px; color: #a855f7;">Reproductor de Video</h3>
+            <div class="form-group">
+                <label>Enlace del Video (YouTube, MP4, Vimeo, etc.)</label>
+                <input type="text" id="video-url-input" placeholder="https://www.youtube.com/watch?v=...">
+            </div>
+            <button class="btn-submit" onclick="cargarVideoPlataforma()" style="margin-top:5px;">Cargar Video</button>
+            
+            <div id="video-container-box" style="margin-top:15px;"></div>
+
+            <button type="button" onclick="cerrarModalReproductorVideo()" style="margin-top:15px; padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer; width:100%;">Cerrar</button>
+        </div>
+    </div>
+
     <!-- MODAL EDITAR PERFIL -->
     <div class="modal" id="edit-profile-modal">
         <div class="modal-content">
@@ -434,7 +473,6 @@ def portada():
             </div>
         </div>
     </div>
-
     <!-- MODAL CREAR COMUNIDAD -->
     <div class="modal" id="create-community-modal">
         <div class="modal-content">
@@ -500,13 +538,14 @@ def portada():
         </div>
     </div>
 
-    <!-- JAVASCRIPT DE FUNCIONALIDAD, ESCÁNER Y PERSISTENCIA -->
+    <!-- JAVASCRIPT DE FUNCIONALIDAD, ESCÁNER, NOTIFICACIONES Y REPRODUCTOR -->
     <script>
         // ESTADO GLOBAL CON PERSISTENCIA LOCAL
         let usuarioActual = JSON.parse(localStorage.getItem('spatial_user')) || null;
         let contactosBD = JSON.parse(localStorage.getItem('spatial_contacts')) || [];
         let chatsBD = JSON.parse(localStorage.getItem('spatial_chats')) || {};
         let estadosBD = JSON.parse(localStorage.getItem('spatial_statuses')) || [];
+        let ticketsSoporteBD = JSON.parse(localStorage.getItem('spatial_support_tickets')) || [];
 
         let tempAvatarData = null;
         let tempStatusMediaData = null;
@@ -514,12 +553,38 @@ def portada():
         let chatActualKey = "";
         let html5QrCodeScanner = null;
 
+        // CONTACTO DE SOPORTE AMITI
+        const AMITI_SUPPORT_OBJ = {
+            id: "amiti_support",
+            nombre: "Amiti (Soporte IA)",
+            contacto: "Centro de Soporte y Reportes",
+            tipo: "Soporte",
+            avatar: "🤖"
+        };
+
         // INICIALIZAR AL CÁRGAR PÁGINA
         window.onload = function() {
+            solicitarPermisoNotificaciones();
             if (usuarioActual) {
                 mostrarAppPrincipal();
             }
         };
+
+        // SISTEMA DE NOTIFICACIONES WEB
+        function solicitarPermisoNotificaciones() {
+            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+        }
+
+        function lanzarNotificacion(titulo, cuerpo) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(titulo, {
+                    body: cuerpo,
+                    icon: "https://cdn-icons-png.flaticon.com/512/2097/2097276.png"
+                });
+            }
+        }
 
         function setModo(modo) {
             const btnLogin = document.getElementById('tab-login');
@@ -578,6 +643,48 @@ def portada():
             renderizarContactos();
             renderizarChats();
             renderizarEstados();
+        }
+
+        // SOPORTE AMITI IA
+        function abrirChatSoporteAmiti() {
+            abrirChat(AMITI_SUPPORT_OBJ);
+        }
+
+        // REPRODUCTOR DE VIDEO
+        function abrirModalReproductorVideo() {
+            document.getElementById('video-player-modal').style.display = 'flex';
+        }
+
+        function cerrarModalReproductorVideo() {
+            document.getElementById('video-player-modal').style.display = 'none';
+            document.getElementById('video-container-box').innerHTML = "";
+        }
+
+        function cargarVideoPlataforma() {
+            const url = document.getElementById('video-url-input').value.trim();
+            const box = document.getElementById('video-container-box');
+            if (!url) return;
+
+            let htmlEmbed = "";
+
+            if (url.includes("youtube.com") || url.includes("youtu.be")) {
+                let videoId = "";
+                if (url.includes("youtu.be/")) {
+                    videoId = url.split("youtu.be/")[1].split("?")[0];
+                } else if (url.includes("watch?v=")) {
+                    videoId = url.split("watch?v=")[1].split("&")[0];
+                }
+                if (videoId) {
+                    htmlEmbed = `<iframe class="video-player-frame" src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe>`;
+                }
+            } else if (url.includes("vimeo.com")) {
+                let vimeoId = url.split("vimeo.com/")[1].split("?")[0];
+                htmlEmbed = `<iframe class="video-player-frame" src="https://player.vimeo.com/video/${vimeoId}" allowfullscreen></iframe>`;
+            } else {
+                htmlEmbed = `<video src="${url}" controls style="width:100%; border-radius:12px; margin-top:10px;"></video>`;
+            }
+
+            box.innerHTML = htmlEmbed || `<p style="color:#ef4444; font-size:0.85rem; margin-top:10px;">Formato de enlace no soportado o no válido.</p>`;
         }
 
         // PERFIL
@@ -644,7 +751,6 @@ def portada():
         function cerrarModalCrearGrupo() {
             document.getElementById('create-group-modal').style.display = 'none';
         }
-
         function crearGrupo() {
             const nombre = document.getElementById('group-name-input').value.trim();
             const desc = document.getElementById('group-desc-input').value.trim();
@@ -960,23 +1066,7 @@ def portada():
                     mensajes: []
                 };
             }
-
-            const infoContacto = contactoObj.tipo ? contactoObj.contacto : (contactoObj.privacidadContacto === "publico" ? contactoObj.contacto : "🔒 Privado");
-            document.getElementById('room-name').innerText = contactoObj.nombre;
-            document.getElementById('room-status').innerText = infoContacto;
-
-            const avatarBox = document.getElementById('room-avatar');
-            if (contactoObj.avatar && contactoObj.avatar.startsWith('data:')) {
-                avatarBox.innerHTML = `<img src="${contactoObj.avatar}">`;
-            } else {
-                avatarBox.innerText = contactoObj.avatar || "👤";
-            }
-
-            cargarMensajesDOM();
-            document.getElementById('chat-room-view').style.display = 'flex';
-        }
-
-        function abrirMiChatPropio() {
+            function abrirMiChatPropio() {
             abrirChat({
                 id: "self",
                 nombre: usuarioActual.nombre + " (Tú)",
@@ -996,10 +1086,12 @@ def portada():
             const texto = input.value.trim();
             if (!texto || !chatActualKey) return;
 
+            const horaActual = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
             const nuevoMsg = {
                 emisor: usuarioActual.nombre,
                 texto: texto,
-                hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                hora: horaActual
             };
 
             chatsBD[chatActualKey].mensajes.push(nuevoMsg);
@@ -1007,6 +1099,30 @@ def portada():
 
             input.value = "";
             cargarMensajesDOM();
+
+            // RESPUESTA AUTOMÁTICA DE AMITI Y REGISTRO DE SOPORTE
+            if (chatActualKey === "amiti_support") {
+                ticketsSoporteBD.push({
+                    usuario: usuarioActual.nombre,
+                    handle: usuarioActual.handle,
+                    contacto: usuarioActual.contacto,
+                    mensaje: texto,
+                    fecha: new Date().toLocaleString()
+                });
+                localStorage.setItem('spatial_support_tickets', JSON.stringify(ticketsSoporteBD));
+
+                setTimeout(() => {
+                    const respuestaAmiti = {
+                        emisor: "Amiti (Soporte IA)",
+                        texto: "¡Hola! He guardado tu mensaje para el equipo de desarrollo y soporte. Si se trata de un reporte de falla, pronto se revisará. ¿Hay algo más en lo que pueda ayudarte?",
+                        hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    };
+                    chatsBD[chatActualKey].mensajes.push(respuestaAmiti);
+                    localStorage.setItem('spatial_chats', JSON.stringify(chatsBD));
+                    cargarMensajesDOM();
+                    lanzarNotificacion("Amiti (Soporte)", "Te ha enviado una respuesta sobre tu reporte.");
+                }, 1000);
+            }
         }
 
         function cargarMensajesDOM() {
