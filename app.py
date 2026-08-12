@@ -47,7 +47,7 @@ def manifest():
 
 @app.route("/")
 def portada():
-    # Mantenemos TU código visual exacto, pero le agregamos el HTML del chat oculto
+    # Aquí combinamos tu diseño de portada con la interfaz tipo Messenger ocultada inicialmente
     html_publico = """
 <!DOCTYPE html>
 <html lang="es">
@@ -58,7 +58,10 @@ def portada():
     <link rel="manifest" href="/manifest.json">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background: radial-gradient(circle at top, #1a1c2e, #0d0e15); color: #ffffff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        body { background: #000; color: #ffffff; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        
+        /* --- ESTILOS DE LA PANTALLA DE INGRESO --- */
+        .auth-container { background: radial-gradient(circle at top, #1a1c2e, #0d0e15); width: 100%; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px; width: 100%; max-width: 400px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); text-align: center; }
         h1 { font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #a855f7, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 6px; }
         p.sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 25px; }
@@ -73,113 +76,141 @@ def portada():
         input:focus { border-color: #a855f7; }
         button.btn-submit { width: 100%; padding: 12px; background: linear-gradient(135deg, #8b5cf6, #6366f1); border: none; border-radius: 10px; color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4); }
 
-        /* Estilos nuevos para el chat */
-        #chat-view { display: none; width: 100%; max-width: 450px; height: 85vh; background: rgba(20, 22, 37, 0.85); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; flex-direction: column; overflow: hidden; }
-        .chat-header { padding: 15px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.08); font-weight: bold; color: #a855f7; }
-        .chat-box { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 10px; border-radius: 10px; font-size: 0.9rem; max-width: 80%; }
-        .msg.me { background: linear-gradient(135deg, #8b5cf6, #6366f1); align-self: flex-end; }
-        .chat-input-area { display: flex; padding: 10px; background: rgba(0,0,0,0.2); }
-        .chat-input-area input { margin-bottom: 0; flex: 1; margin-right: 10px; }
-        .chat-input-area button { padding: 0 15px; background: #8b5cf6; border: none; border-radius: 10px; color: white; cursor: pointer; font-weight: bold; }
+        /* --- ESTILOS DE LA INTERFAZ PRINCIPAL (MESSENGER) --- */
+        #app-view { display: none; flex-direction: column; width: 100%; height: 100vh; background-color: #000; }
+        .header-app { padding: 15px; font-size: 1.5em; font-weight: bold; }
+        
+        /* Historias */
+        .stories-bar { display: flex; overflow-x: auto; padding: 10px 15px; gap: 12px; border-bottom: 1px solid #222; }
+        .story-item { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 0.75em; color: #aaa; flex-shrink: 0; }
+        .story-circle { width: 60px; height: 60px; background: #333; border-radius: 50%; border: 2px solid #a855f7; display: flex; align-items: center; justify-content: center; font-size: 1.5em; color: white; }
+        
+        /* Lista de Chats */
+        .chat-list { display: flex; flex-direction: column; padding: 5px 0; overflow-y: auto; flex-grow: 1; padding-bottom: 70px; }
+        .chat-item { display: flex; align-items: center; padding: 12px 15px; gap: 15px; text-decoration: none; color: white; cursor: pointer; }
+        .chat-item:active { background-color: #111; }
+        .avatar { width: 55px; height: 55px; background: #30363d; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .chat-info { display: flex; flex-direction: column; gap: 4px; overflow: hidden; width: 100%; }
+        .chat-name { font-weight: bold; font-size: 1em; }
+        .chat-preview { font-size: 0.85em; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* Barra de Navegación */
+        .nav-bar { position: fixed; bottom: 0; width: 100%; display: flex; justify-content: space-around; padding: 12px 0; background: #121212; border-top: 1px solid #222; font-size: 0.9em; }
+        .nav-item { color: #888; text-align: center; text-decoration: none; cursor: pointer; }
+        .nav-item.active { color: #a855f7; font-weight: bold; }
     </style>
 </head>
 <body>
     
-    <!-- PANTALLA DE INGRESO (Tu código exacto) -->
-    <div class="card" id="auth-view">
-        <h1>SPATIAL NETWORK</h1>
-        <p class="sub">Red Social y Transmisión Multimedia Global</p>
-        
-        <div class="tabs">
-            <button class="tab-btn active" id="tab-login" onclick="setModo('login')">Ingresar</button>
-            <button class="tab-btn" id="tab-reg" onclick="setModo('reg')">Registrarse</button>
-        </div>
-
-        <form onsubmit="procesarAuth(event)">
-            <div class="form-group" id="grp-user" style="display:none;">
-                <label>Nombre de usuario</label>
-                <input type="text" id="username" placeholder="@usuario">
-            </div>
-            <div class="form-group">
-                <label>Correo electrónico</label>
-                <input type="email" id="email" placeholder="usuario@espacio.com" required>
-            </div>
-            <div class="form-group">
-                <label>Contraseña</label>
-                <input type="password" id="password" placeholder="••••••••" required>
-            </div>
-            <button class="btn-submit" type="submit" id="btn-text">Ingresar a la Red</button>
-        </form>
-    </div>
-
-    <!-- PANTALLA DE CHAT (Nueva) -->
-    <div id="chat-view">
-        <div class="chat-header">💬 Sala Espacial</div>
-        <div class="chat-box" id="chat-box"></div>
-        <div class="chat-input-area">
-            <input type="text" id="msg-input" placeholder="Escribe un mensaje o URL multimedia...">
-            <button onclick="enviarMensaje()">Enviar</button>
-        </div>
-    </div>
-
-    <script>
-        let modo = 'login';
-        let usuarioActual = '';
-
-        function setModo(m) {
-            modo = m;
-            document.getElementById('tab-login').classList.toggle('active', m === 'login');
-            document.getElementById('tab-reg').classList.toggle('active', m === 'reg');
-            document.getElementById('grp-user').style.display = m === 'reg' ? 'block' : 'none';
-            document.getElementById('btn-text').innerText = m === 'reg' ? 'Crear Cuenta' : 'Ingresar a la Red';
-        }
-
-        function procesarAuth(e) {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const username = document.getElementById('username').value;
+    <!-- VISTA 1: PANTALLA DE INGRESO / REGISTRO -->
+    <div class="auth-container" id="auth-view">
+        <div class="card">
+            <h1>SPATIAL NETWORK</h1>
+            <p class="sub">Red Social y Transmisión Multimedia Global</p>
             
-            usuarioActual = username || email.split('@')[0];
+            <div class="tabs">
+                <button class="tab-btn active" id="tab-login" onclick="setModo('login')">Ingresar</button>
+                <button class="tab-btn" id="tab-reg" onclick="setModo('reg')">Registrarse</button>
+            </div>
 
-            fetch('/api/auth', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ modo, email, password, username })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.exito || data.status === "ok") {
-                    // Si el login es exitoso, oculta el login y muestra el chat
-                    document.getElementById('auth-view').style.display = 'none';
-                    document.getElementById('chat-view').style.display = 'flex';
-                } else {
-                    alert(data.mensaje || "Error al autenticar");
-                }
-            });
+            <form onsubmit="procesarAuth(event)">
+                <div class="form-group" id="grp-user" style="display:none;">
+                    <label>Nombre de usuario</label>
+                    <input type="text" id="username" placeholder="@usuario">
+                </div>
+                <!-- Campo adaptado para Teléfono o Correo -->
+                <div class="form-group">
+                    <label>Correo electrónico o Teléfono</label>
+                    <input type="text" id="identificador" placeholder="usuario@espacio.com o +58..." required>
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+                <button class="btn-submit" type="submit" id="btn-text">Ingresar a la Red</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- VISTA 2: INTERFAZ PRINCIPAL (Oculta hasta iniciar sesión) -->
+    <div id="app-view">
+        <div class="header-app">messenger</div>
+
+        <!-- Sección de Estados / Historias -->
+        <div class="stories-bar">
+            <div class="story-item">
+                <div class="story-circle">+</div>
+                <span>Crear historia</span>
+            </div>
+            <div class="story-item">
+                <div class="story-circle" style="border-color: #555;"></div>
+                <span>Ricky</span>
+            </div>
+            <div class="story-item">
+                <div class="story-circle" style="border-color: #555;"></div>
+                <span>Momo</span>
+            </div>
+        </div>
+
+        <!-- Lista de Chats -->
+        <div class="chat-list">
+            <!-- Chat Oficial de Soporte Amiti -->
+            <div class="chat-item">
+                <div class="avatar" style="background-color: #a855f7;">🤖</div>
+                <div class="chat-info">
+                    <span class="chat-name">Amiti Soporte</span>
+                    <span class="chat-preview">Reporta aquí cualquier falla o queja...</span>
+                </div>
+            </div>
+
+            <!-- Ejemplo de chat de usuario -->
+            <div class="chat-item">
+                <div class="avatar">R</div>
+                <div class="chat-info">
+                    <span class="chat-name">Ricky</span>
+                    <span class="chat-preview">Hola, ¿cómo va el proyecto?</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de Navegación Inferior -->
+        <div class="nav-bar">
+            <div class="nav-item active">Chats</div>
+            <div class="nav-item">Personas</div>
+            <div class="nav-item">Notificaciones</div>
+            <div class="nav-item">Menú</div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS PARA CONTROLAR LA INTERFAZ -->
+    <script>
+        function setModo(modo) {
+            const btnLogin = document.getElementById('tab-login');
+            const btnReg = document.getElementById('tab-reg');
+            const grpUser = document.getElementById('grp-user');
+            const btnText = document.getElementById('btn-text');
+
+            if (modo === 'login') {
+                btnLogin.classList.add('active');
+                btnReg.classList.remove('active');
+                grpUser.style.display = 'none';
+                btnText.innerText = 'Ingresar a la Red';
+            } else {
+                btnReg.classList.add('active');
+                btnLogin.classList.remove('active');
+                grpUser.style.display = 'block';
+                btnText.innerText = 'Crear cuenta';
+            }
         }
 
-        function enviarMensaje() {
-            const input = document.getElementById('msg-input');
-            const txt = input.value.trim();
-            if (!txt) return;
-
-            // Mostrar el mensaje en la pantalla
-            const chatBox = document.getElementById('chat-box');
-            const div = document.createElement('div');
-            div.className = 'msg me';
-            div.innerText = txt;
-            chatBox.appendChild(div);
-            chatBox.scrollTop = chatBox.scrollHeight;
-            input.value = '';
-
-            // Enviar al backend para guardar en Supabase y Moderar
-            fetch('/api/mensaje', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ usuario: usuarioActual, mensaje: txt })
-            });
+        function procesarAuth(event) {
+            event.preventDefault(); // Evita que la página se recargue
+            
+            // Oculta la pantalla de inicio de sesión
+            document.getElementById('auth-view').style.display = 'none';
+            
+            // Muestra la interfaz principal de la app
+            document.getElementById('app-view').style.display = 'flex';
         }
     </script>
 </body>
@@ -187,50 +218,6 @@ def portada():
     """
     return render_template_string(html_publico)
 
-# --- BACKEND Y APIs ---
-
-@app.route("/api/auth", methods=["POST"])
-def auth_proxy():
-    datos = request.json or {}
-    # Ahora usamos Supabase para la autenticación si está configurado
-    if supabase:
-        try:
-            if datos.get('modo') == 'reg':
-                supabase.auth.sign_up({"email": datos['email'], "password": datos['password']})
-            else:
-                supabase.auth.sign_in_with_password({"email": datos['email'], "password": datos['password']})
-            return jsonify({"exito": True, "status": "ok"})
-        except Exception as e:
-            return jsonify({"exito": False, "mensaje": str(e)}), 400
-    else:
-        # Si no hay Supabase, usa la lógica puente anterior
-        try:
-            headers = {"X-Amiti-Auth": TOKEN_ENLACE}
-            res = requests.post(f"{SERVIDOR_1_URL}/api/v1/auditar_y_procesar", json=datos, headers=headers, timeout=5)
-            return jsonify(res.json()), res.status_code
-        except Exception:
-            return jsonify({"exito": True, "mensaje": "Ingreso local (Sin base de datos)"}), 200
-
-@app.route("/api/mensaje", methods=["POST"])
-def procesar_mensaje():
-    datos = request.json or {}
-    usuario = datos.get("usuario", "Anon")
-    mensaje = datos.get("mensaje", "")
-
-    # 1. Moderar (Si es malo, avisa al Servidor 1)
-    if es_comportamiento_indebido(mensaje):
-        reportar_al_servidor_principal(usuario, mensaje)
-
-    # 2. Guardar en Supabase
-    if supabase:
-        try:
-            supabase.table("mensajes").insert({"usuario": usuario, "contenido": mensaje}).execute()
-        except Exception as e:
-            print(f"Error guardando en Supabase: {e}")
-
-    return jsonify({"status": "recibido"}), 200
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-    
+if __name__ == '__main__':
+    app.run(debug=True)
+        
