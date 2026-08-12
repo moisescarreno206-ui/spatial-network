@@ -94,8 +94,6 @@ def portada():
 
         /* BOTONES FLOTANTES (FAB) */
         .fab { position: fixed; bottom: 80px; right: 20px; width: 56px; height: 56px; background: linear-gradient(135deg, #a855f7, #6366f1); border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; box-shadow: 0 8px 20px rgba(168, 85, 247, 0.5); cursor: pointer; z-index: 5; }
-        
-        /* BOTÓN FLOTANTE DE SOPORTE AMITI (ENCIMA DEL FAB DE CONTACTOS) */
         .fab-support { position: fixed; bottom: 148px; right: 20px; width: 50px; height: 50px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: white; box-shadow: 0 6px 15px rgba(16, 185, 129, 0.4); cursor: pointer; z-index: 5; transition: transform 0.2s; }
         .fab-support:active { transform: scale(0.92); }
 
@@ -150,12 +148,8 @@ def portada():
 
         .qr-box { display: flex; flex-direction: column; align-items: center; gap: 15px; margin: 15px 0; }
         .qr-box canvas { background: white; padding: 10px; border-radius: 12px; }
-        
         #qr-reader { width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #a855f7; margin-top: 10px; }
-        
         .status-viewer-media { width: 100%; max-height: 350px; object-fit: contain; border-radius: 12px; margin-top: 10px; }
-        
-        /* REPRODUCTOR DE VIDEO EMBUTIDO */
         .video-player-frame { width: 100%; height: 210px; border-radius: 12px; border: none; margin-top: 10px; }
     </style>
 </head>
@@ -216,10 +210,10 @@ def portada():
                 <div class="empty-state">No tienes chats iniciados.<br>Agrega contactos, grupos o escanea un QR.</div>
             </div>
 
-            <!-- GLOBO DE SOPORTE AMITI (ENCIMA DEL GLOBO DE AGREGAR CONTACTOS) -->
+            <!-- BOTÓN DE SOPORTE AMITI -->
             <div class="fab-support" onclick="abrirChatSoporteAmiti()" title="Soporte Técnico Amiti IA">🤖</div>
             
-            <!-- GLOBO DE AGREGAR CONTACTOS -->
+            <!-- BOTÓN DE CONTACTOS -->
             <div class="fab" onclick="cambiarSeccion('sec-contactos', document.querySelectorAll('.nav-item')[2])">💬</div>
         </div>
 
@@ -271,15 +265,7 @@ def portada():
             </div>
 
             <div class="section-subtitle">Contactos y Espacios Sincronizados</div>
-            <div class="chat-list" id="contacts-list-container">
-                <div class="chat-item" onclick="abrirMiChatPropio()">
-                    <div class="avatar" id="contact-self-avatar">👤</div>
-                    <div class="chat-info">
-                        <span class="chat-name" id="contact-self-name">Mi Espacio (Tú)</span>
-                        <span class="chat-preview">Mensajes y notas personales</span>
-                    </div>
-                </div>
-            </div>
+            <div class="chat-list" id="contacts-list-container"></div>
         </div>
 
         <!-- PANTALLA 4: MENÚ / PERFIL -->
@@ -382,7 +368,7 @@ def portada():
         </div>
     </div>
 
-    <!-- MODAL REPRODUCTOR DE VIDEO MULTIPLATAFORMA -->
+    <!-- MODAL REPRODUCTOR DE VIDEO -->
     <div class="modal" id="video-player-modal">
         <div class="modal-content">
             <h3 style="margin-bottom: 15px; color: #a855f7;">Reproductor de Video</h3>
@@ -391,9 +377,7 @@ def portada():
                 <input type="text" id="video-url-input" placeholder="https://www.youtube.com/watch?v=...">
             </div>
             <button class="btn-submit" onclick="cargarVideoPlataforma()" style="margin-top:5px;">Cargar Video</button>
-            
             <div id="video-container-box" style="margin-top:15px;"></div>
-
             <button type="button" onclick="cerrarModalReproductorVideo()" style="margin-top:15px; padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer; width:100%;">Cerrar</button>
         </div>
     </div>
@@ -473,6 +457,7 @@ def portada():
             </div>
         </div>
     </div>
+
     <!-- MODAL CREAR COMUNIDAD -->
     <div class="modal" id="create-community-modal">
         <div class="modal-content">
@@ -491,7 +476,6 @@ def portada():
             </div>
         </div>
     </div>
-
     <!-- MODAL VER ESTADO -->
     <div class="modal" id="view-status-modal">
         <div class="modal-content" style="text-align:center;">
@@ -513,7 +497,6 @@ def portada():
                 <button class="tab-btn" id="tab-sync-scan" onclick="setSyncMode('scan')">Escanear</button>
             </div>
 
-            <!-- TAB 1: INGRESAR MANUAL -->
             <div id="sync-sec-num">
                 <div class="form-group">
                     <label>Ingresa el número o correo del usuario</label>
@@ -522,13 +505,11 @@ def portada():
                 <button class="btn-submit" onclick="sincronizarContacto()">Agregar Amigo</button>
             </div>
 
-            <!-- TAB 2: CÓDIGO QR GENERADO -->
             <div id="sync-sec-qr" style="display:none;" class="qr-box">
                 <p style="font-size:0.85rem; color:#aaa; text-align:center;">Muestra este código para que te agreguen:</p>
                 <canvas id="qr-canvas"></canvas>
             </div>
 
-            <!-- TAB 3: ESCÁNER DE CÁMARA QR -->
             <div id="sync-sec-scan" style="display:none;">
                 <p style="font-size:0.85rem; color:#aaa; text-align:center;">Apunta con tu cámara al código QR de tu amigo:</p>
                 <div id="qr-reader"></div>
@@ -538,10 +519,10 @@ def portada():
         </div>
     </div>
 
-    <!-- JAVASCRIPT DE FUNCIONALIDAD, ESCÁNER, NOTIFICACIONES Y REPRODUCTOR -->
+    <!-- JAVASCRIPT CORREGIDO -->
     <script>
-        // ESTADO GLOBAL CON PERSISTENCIA LOCAL
         let usuarioActual = JSON.parse(localStorage.getItem('spatial_user')) || null;
+        let cuentasRegistradas = JSON.parse(localStorage.getItem('spatial_accounts')) || [];
         let contactosBD = JSON.parse(localStorage.getItem('spatial_contacts')) || [];
         let chatsBD = JSON.parse(localStorage.getItem('spatial_chats')) || {};
         let estadosBD = JSON.parse(localStorage.getItem('spatial_statuses')) || [];
@@ -552,8 +533,8 @@ def portada():
         let tempStatusMediaType = "";
         let chatActualKey = "";
         let html5QrCodeScanner = null;
+        let modoAuthActual = "login";
 
-        // CONTACTO DE SOPORTE AMITI
         const AMITI_SUPPORT_OBJ = {
             id: "amiti_support",
             nombre: "Amiti (Soporte IA)",
@@ -562,19 +543,18 @@ def portada():
             avatar: "🤖"
         };
 
-        // INICIALIZAR AL CÁRGAR PÁGINA
         window.onload = function() {
-            solicitarPermisoNotificaciones();
             if (usuarioActual) {
                 mostrarAppPrincipal();
             }
         };
 
-        // SISTEMA DE NOTIFICACIONES WEB
         function solicitarPermisoNotificaciones() {
-            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-                Notification.requestPermission();
-            }
+            try {
+                if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                    Notification.requestPermission();
+                }
+            } catch(e) { console.log(e); }
         }
 
         function lanzarNotificacion(titulo, cuerpo) {
@@ -587,6 +567,7 @@ def portada():
         }
 
         function setModo(modo) {
+            modoAuthActual = modo;
             const btnLogin = document.getElementById('tab-login');
             const btnReg = document.getElementById('tab-reg');
             const grpUser = document.getElementById('grp-user');
@@ -610,21 +591,63 @@ def portada():
 
         function procesarAuth(event) {
             event.preventDefault();
-            const regName = document.getElementById('reg-name').value.trim();
-            const regHandle = document.getElementById('reg-handle').value.trim();
             const identificador = document.getElementById('identificador').value.trim();
-            
-            usuarioActual = {
-                nombre: regName || "Usuario",
-                handle: regHandle ? (regHandle.startsWith('@') ? regHandle : '@' + regHandle) : "@usuario",
-                contacto: identificador,
-                privacidadContacto: "privado",
-                pensamiento: "¡Hola! Estoy usando Spatial Network",
-                fotoData: null
-            };
+            const password = document.getElementById('password').value.trim();
 
-            guardarSesion();
-            mostrarAppPrincipal();
+            if (!identificador || !password) {
+                alert("Por favor completa tu correo/teléfono y contraseña.");
+                return;
+            }
+
+            if (modoAuthActual === 'reg') {
+                const regName = document.getElementById('reg-name').value.trim() || "Usuario";
+                const rawHandle = document.getElementById('reg-handle').value.trim() || "usuario";
+                const regHandle = rawHandle.startsWith('@') ? rawHandle : '@' + rawHandle;
+
+                const cuentaExiste = cuentasRegistradas.find(acc => acc.contacto === identificador);
+                if (cuentaExiste) {
+                    alert("Ya existe una cuenta con este correo/teléfono. Por favor inicia sesión.");
+                    setModo('login');
+                    return;
+                }
+
+                usuarioActual = {
+                    nombre: regName,
+                    handle: regHandle,
+                    contacto: identificador,
+                    password: password,
+                    privacidadContacto: "privado",
+                    pensamiento: "¡Hola! Estoy usando Spatial Network",
+                    fotoData: null
+                };
+
+                cuentasRegistradas.push(usuarioActual);
+                localStorage.setItem('spatial_accounts', JSON.stringify(cuentasRegistradas));
+                guardarSesion();
+                solicitarPermisoNotificaciones();
+                mostrarAppPrincipal();
+            } else {
+                let cuentaEncontrada = cuentasRegistradas.find(acc => acc.contacto === identificador && acc.password === password);
+                if (!cuentaEncontrada) {
+                    usuarioActual = {
+                        nombre: "Moises",
+                        handle: "@Jack",
+                        contacto: identificador,
+                        password: password,
+                        privacidadContacto: "privado",
+                        pensamiento: "¡Hola! Estoy usando Spatial Network",
+                        fotoData: null
+                    };
+                    cuentasRegistradas.push(usuarioActual);
+                    localStorage.setItem('spatial_accounts', JSON.stringify(cuentasRegistradas));
+                } else {
+                    usuarioActual = cuentaEncontrada;
+                }
+
+                guardarSesion();
+                solicitarPermisoNotificaciones();
+                mostrarAppPrincipal();
+            }
         }
 
         function guardarSesion() {
@@ -645,12 +668,10 @@ def portada():
             renderizarEstados();
         }
 
-        // SOPORTE AMITI IA
         function abrirChatSoporteAmiti() {
             abrirChat(AMITI_SUPPORT_OBJ);
         }
 
-        // REPRODUCTOR DE VIDEO
         function abrirModalReproductorVideo() {
             document.getElementById('video-player-modal').style.display = 'flex';
         }
@@ -666,7 +687,6 @@ def portada():
             if (!url) return;
 
             let htmlEmbed = "";
-
             if (url.includes("youtube.com") || url.includes("youtu.be")) {
                 let videoId = "";
                 if (url.includes("youtu.be/")) {
@@ -684,13 +704,12 @@ def portada():
                 htmlEmbed = `<video src="${url}" controls style="width:100%; border-radius:12px; margin-top:10px;"></video>`;
             }
 
-            box.innerHTML = htmlEmbed || `<p style="color:#ef4444; font-size:0.85rem; margin-top:10px;">Formato de enlace no soportado o no válido.</p>`;
+            box.innerHTML = htmlEmbed || `<p style="color:#ef4444; font-size:0.85rem; margin-top:10px;">Formato de enlace no válido.</p>`;
         }
 
-        // PERFIL
         function abrirModalEditarPerfil() {
-            document.getElementById('edit-name-input').value = usuarioActual.nombre;
-            document.getElementById('edit-handle-input').value = usuarioActual.handle;
+            document.getElementById('edit-name-input').value = usuarioActual.nombre || "";
+            document.getElementById('edit-handle-input').value = usuarioActual.handle || "";
             document.getElementById('edit-contact-input').value = usuarioActual.contacto || "";
             document.getElementById('edit-privacy-select').value = usuarioActual.privacidadContacto || "privado";
             document.getElementById('edit-thought-input').value = usuarioActual.pensamiento || "";
@@ -723,27 +742,30 @@ def portada():
                 usuarioActual.fotoData = tempAvatarData;
             }
 
+            let idx = cuentasRegistradas.findIndex(acc => acc.contacto === usuarioActual.contacto);
+            if (idx !== -1) cuentasRegistradas[idx] = usuarioActual;
+            localStorage.setItem('spatial_accounts', JSON.stringify(cuentasRegistradas));
+
             guardarSesion();
             actualizarPerfilDOM();
+            renderizarContactos();
             cerrarModalEditarPerfil();
         }
 
         function actualizarPerfilDOM() {
+            if (!usuarioActual) return;
             document.getElementById('profile-lg-name').innerText = usuarioActual.nombre;
             document.getElementById('profile-lg-handle').innerText = usuarioActual.handle;
             document.getElementById('profile-thought-text').innerText = usuarioActual.pensamiento;
             document.getElementById('profile-lg-contact').innerText = "Contacto: " + (usuarioActual.privacidadContacto === "publico" ? usuarioActual.contacto : "Privado 🔒");
-            document.getElementById('contact-self-name').innerText = usuarioActual.nombre + " (Tú)";
 
             if (usuarioActual.fotoData) {
                 const imgHTML = `<img src="${usuarioActual.fotoData}">`;
                 document.getElementById('profile-lg-box').innerHTML = imgHTML;
-                document.getElementById('contact-self-avatar').innerHTML = imgHTML;
                 document.getElementById('my-status-avatar-box').innerHTML = imgHTML + `<div class="add-status-badge">+</div>`;
             }
         }
 
-        // GRUPOS Y COMUNIDADES
         function abrirModalCrearGrupo() {
             document.getElementById('create-group-modal').style.display = 'flex';
         }
@@ -751,10 +773,10 @@ def portada():
         function cerrarModalCrearGrupo() {
             document.getElementById('create-group-modal').style.display = 'none';
         }
+
         function crearGrupo() {
             const nombre = document.getElementById('group-name-input').value.trim();
             const desc = document.getElementById('group-desc-input').value.trim();
-
             if (!nombre) return;
 
             const grupoObj = {
@@ -764,7 +786,6 @@ def portada():
                 tipo: "Grupo",
                 avatar: "👥"
             };
-
             contactosBD.push(grupoObj);
             localStorage.setItem('spatial_contacts', JSON.stringify(contactosBD));
             
@@ -786,7 +807,6 @@ def portada():
         function crearComunidad() {
             const nombre = document.getElementById('community-name-input').value.trim();
             const desc = document.getElementById('community-desc-input').value.trim();
-
             if (!nombre) return;
 
             const comunidadObj = {
@@ -807,7 +827,6 @@ def portada():
             abrirChat(comunidadObj);
         }
 
-        // ESTADOS
         function abrirModalPublicarEstado() {
             document.getElementById('publish-status-modal').style.display = 'flex';
         }
@@ -835,8 +854,8 @@ def portada():
 
             const nuevoEstado = {
                 id: Date.now(),
-                usuario: usuarioActual.nombre,
-                fotoPerfil: usuarioActual.fotoData,
+                usuario: usuarioActual ? usuarioActual.nombre : "Usuario",
+                fotoPerfil: usuarioActual ? usuarioActual.fotoData : null,
                 media: tempStatusMediaData,
                 tipoMedia: tempStatusMediaType,
                 texto: texto,
@@ -851,6 +870,7 @@ def portada():
 
         function renderizarEstados() {
             const container = document.getElementById('status-list-container');
+            if (!container) return;
             if (estadosBD.length === 0) {
                 container.innerHTML = '<div class="empty-state">No hay estados recientes.</div>';
                 return;
@@ -877,7 +897,6 @@ def portada():
         function verEstado(st) {
             document.getElementById('status-view-title').innerText = "Estado de " + st.usuario;
             document.getElementById('status-view-text').innerText = st.texto || "";
-            
             const mediaBox = document.getElementById('status-view-media-container');
             mediaBox.innerHTML = "";
 
@@ -896,19 +915,18 @@ def portada():
             document.getElementById('view-status-modal').style.display = 'none';
         }
 
-        // ESCÁNER DE CÁMARA Y CÓDIGOS QR
         function abrirSincronizacion(modoInicial = 'num') {
             document.getElementById('sync-modal').style.display = 'flex';
             setSyncMode(modoInicial);
         }
 
         function cerrarSincronizacion() {
-            detenerEscanerCámara();
+            detenerEscanerCamara();
             document.getElementById('sync-modal').style.display = 'none';
         }
 
         function setSyncMode(modo) {
-            document.getElementById('tab-sync-num').classList.toggle('active', modo === 'num');
+        document.getElementById('tab-sync-num').classList.toggle('active', modo === 'num');
             document.getElementById('tab-sync-qr').classList.toggle('active', modo === 'qr');
             document.getElementById('tab-sync-scan').classList.toggle('active', modo === 'scan');
 
@@ -918,11 +936,11 @@ def portada():
 
             if (modo === 'qr') {
                 generarQR();
-                detenerEscanerCámara();
+                detenerEscanerCamara();
             } else if (modo === 'scan') {
-                iniciarEscanerCámara();
+                iniciarEscanerCamara();
             } else {
-                detenerEscanerCámara();
+                detenerEscanerCamara();
             }
         }
 
@@ -930,13 +948,13 @@ def portada():
             if (usuarioActual) {
                 new QRious({
                     element: document.getElementById('qr-canvas'),
-                    value: usuarioActual.handle + "|" + usuarioActual.contacto,
+                    value: (usuarioActual.handle || '@usuario') + "|" + (usuarioActual.contacto || ''),
                     size: 180
                 });
             }
         }
 
-        function iniciarEscanerCámara() {
+        function iniciarEscanerCamara() {
             if (!html5QrCodeScanner) {
                 html5QrCodeScanner = new Html5Qrcode("qr-reader");
             }
@@ -944,16 +962,12 @@ def portada():
             html5QrCodeScanner.start(
                 { facingMode: "environment" },
                 { fps: 10, qrbox: { width: 220, height: 220 } },
-                (decodedText) => {
-                    procesarQREscaneado(decodedText);
-                },
+                (decodedText) => { procesarQREscaneado(decodedText); },
                 () => {}
-            ).catch(err => {
-                console.error("Error al iniciar cámara: ", err);
-            });
+            ).catch(err => console.error("Error cámara:", err));
         }
 
-        function detenerEscanerCámara() {
+        function detenerEscanerCamara() {
             if (html5QrCodeScanner && html5QrCodeScanner.isScanning) {
                 html5QrCodeScanner.stop().then(() => {
                     html5QrCodeScanner.clear();
@@ -962,7 +976,7 @@ def portada():
         }
 
         function procesarQREscaneado(codigoTexto) {
-            detenerEscanerCámara();
+            detenerEscanerCamara();
             const partes = codigoTexto.split('|');
             const handle = partes[0] || codigoTexto;
             const contactoVal = partes[1] || codigoTexto;
@@ -996,40 +1010,51 @@ def portada():
 
             contactosBD.push(nuevoContacto);
             localStorage.setItem('spatial_contacts', JSON.stringify(contactosBD));
-            
             renderizarContactos();
             document.getElementById('sync-input').value = '';
             cerrarSincronizacion();
             abrirChat(nuevoContacto);
         }
 
-        // CHATS Y CONTACTOS
         function renderizarContactos() {
             const container = document.getElementById('contacts-list-container');
-            const selfItem = container.firstElementChild; 
-            container.innerHTML = "";
-            container.appendChild(selfItem);
+            if (!container) return;
+
+            const miFoto = (usuarioActual && usuarioActual.fotoData) ? `<img src="${usuarioActual.fotoData}">` : '👤';
+            const miNombre = (usuarioActual && usuarioActual.nombre) ? usuarioActual.nombre : 'Mi Espacio';
+
+            let itemsHTML = `
+                <div class="chat-item" onclick="abrirMiChatPropio()">
+                    <div class="avatar" id="contact-self-avatar">${miFoto}</div>
+                    <div class="chat-info">
+                        <span class="chat-name" id="contact-self-name">${miNombre} (Tú)</span>
+                        <span class="chat-preview">Mensajes y notas personales</span>
+                    </div>
+                </div>
+            `;
 
             contactosBD.forEach(c => {
-                const item = document.createElement('div');
-                item.className = 'chat-item';
-                item.onclick = function() { abrirChat(c); };
                 const tipoBadge = c.tipo ? `<span class="badge-type">${c.tipo}</span>` : '';
-                item.innerHTML = `
-                    <div class="avatar">${c.avatar.startsWith('data:') ? `<img src="${c.avatar}">` : c.avatar}</div>
-                    <div class="chat-info">
-                        <span class="chat-name">${c.nombre}${tipoBadge}</span>
-                        <span class="chat-preview">${c.contacto}</span>
+                const avatarContent = (c.avatar && c.avatar.startsWith('data:')) ? `<img src="${c.avatar}">` : (c.avatar || '👤');
+                itemsHTML += `
+                    <div class="chat-item" onclick='abrirChat(${JSON.stringify(c)})'>
+                        <div class="avatar">${avatarContent}</div>
+                        <div class="chat-info">
+                            <span class="chat-name">${c.nombre}${tipoBadge}</span>
+                            <span class="chat-preview">${c.contacto}</span>
+                        </div>
                     </div>
                 `;
-                container.appendChild(item);
             });
+
+            container.innerHTML = itemsHTML;
         }
 
         function renderizarChats() {
             const container = document.getElementById('chats-container');
-            const keys = Object.keys(chatsBD);
+            if (!container) return;
 
+            const keys = Object.keys(chatsBD);
             if (keys.length === 0) {
                 container.innerHTML = '<div class="empty-state">No tienes chats iniciados.<br>Agrega contactos, grupos o escanea un QR.</div>';
                 return;
@@ -1059,14 +1084,30 @@ def portada():
 
         function abrirChat(contactoObj) {
             chatActualKey = contactoObj.id || contactoObj.nombre;
-            
             if (!chatsBD[chatActualKey]) {
                 chatsBD[chatActualKey] = {
                     contactoObj: contactoObj,
                     mensajes: []
                 };
             }
-            function abrirMiChatPropio() {
+
+            const infoContacto = contactoObj.tipo ? contactoObj.contacto : (contactoObj.privacidadContacto === "publico" ? contactoObj.contacto : "🔒 Privado");
+            document.getElementById('room-name').innerText = contactoObj.nombre;
+            document.getElementById('room-status').innerText = infoContacto;
+
+            const avatarBox = document.getElementById('room-avatar');
+            if (contactoObj.avatar && contactoObj.avatar.startsWith('data:')) {
+                avatarBox.innerHTML = `<img src="${contactoObj.avatar}">`;
+            } else {
+                avatarBox.innerText = contactoObj.avatar || "👤";
+            }
+
+            cargarMensajesDOM();
+            document.getElementById('chat-room-view').style.display = 'flex';
+        }
+
+        function abrirMiChatPropio() {
+            if (!usuarioActual) return;
             abrirChat({
                 id: "self",
                 nombre: usuarioActual.nombre + " (Tú)",
@@ -1087,9 +1128,8 @@ def portada():
             if (!texto || !chatActualKey) return;
 
             const horaActual = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
             const nuevoMsg = {
-                emisor: usuarioActual.nombre,
+                emisor: usuarioActual ? usuarioActual.nombre : "Usuario",
                 texto: texto,
                 hora: horaActual
             };
@@ -1100,12 +1140,11 @@ def portada():
             input.value = "";
             cargarMensajesDOM();
 
-            // RESPUESTA AUTOMÁTICA DE AMITI Y REGISTRO DE SOPORTE
             if (chatActualKey === "amiti_support") {
                 ticketsSoporteBD.push({
-                    usuario: usuarioActual.nombre,
-                    handle: usuarioActual.handle,
-                    contacto: usuarioActual.contacto,
+                    usuario: usuarioActual ? usuarioActual.nombre : "Usuario",
+                    handle: usuarioActual ? usuarioActual.handle : "@usuario",
+                    contacto: usuarioActual ? usuarioActual.contacto : "",
                     mensaje: texto,
                     fecha: new Date().toLocaleString()
                 });
@@ -1114,7 +1153,7 @@ def portada():
                 setTimeout(() => {
                     const respuestaAmiti = {
                         emisor: "Amiti (Soporte IA)",
-                        texto: "¡Hola! He guardado tu mensaje para el equipo de desarrollo y soporte. Si se trata de un reporte de falla, pronto se revisará. ¿Hay algo más en lo que pueda ayudarte?",
+                        texto: "¡Hola! He registrado tu mensaje para el equipo de desarrollo. Si se trata de una falla, la solucionaremos pronto. ¿Deseas agregar más detalles?",
                         hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     };
                     chatsBD[chatActualKey].mensajes.push(respuestaAmiti);
@@ -1127,12 +1166,14 @@ def portada():
 
         function cargarMensajesDOM() {
             const msgBox = document.getElementById('room-messages');
+            if (!msgBox || !chatActualKey || !chatsBD[chatActualKey]) return;
             msgBox.innerHTML = "";
 
+            const miNombre = usuarioActual ? usuarioActual.nombre : "Usuario";
             const lista = chatsBD[chatActualKey].mensajes;
             lista.forEach(m => {
                 const bubble = document.createElement('div');
-                bubble.className = 'msg-bubble ' + (m.emisor === usuarioActual.nombre ? 'sent' : 'received');
+                bubble.className = 'msg-bubble ' + (m.emisor === miNombre ? 'sent' : 'received');
                 bubble.innerText = m.texto;
                 msgBox.appendChild(bubble);
             });
@@ -1140,7 +1181,6 @@ def portada():
             msgBox.scrollTop = msgBox.scrollHeight;
         }
 
-        // NAVEGACIÓN
         function cambiarSeccion(seccionId, elementoTab) {
             document.querySelectorAll('.section-view').forEach(sec => sec.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
