@@ -1,1207 +1,527 @@
 import os
+import json
+import time
+from datetime import datetime
 import requests
-from flask import Flask, jsonify, render_template_string
-from supabase import create_client, Client
+from flask import Flask, render_template_string, jsonify, request, Response
 
 app = Flask(__name__)
 
-# --- CONFIGURACIÓN DE ENLACES Y BASE DE DATOS ---
-SERVIDOR_1_URL = os.environ.get("SERVIDOR_1_URL", "https://tu-amiti-core.onrender.com")
-TOKEN_ENLACE = os.environ.get("TOKEN_ENLACE", "AMITI_LINK_SECURE_KEY_2026")
+# ==========================================
+# CONFIGURACIÓN Y VARIABLES DE ENTORNO
+# ==========================================
+PORT = int(os.environ.get("PORT", 5000))
+SERVIDOR_1_URL = os.environ.get("SERVIDOR_1_URL", "https://amiti-spatial-network.onrender.com")
+TOKEN_ENLACE = os.environ.get("TOKEN_ENLACE", "spatial-secure-token-2026")
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xyzcompany.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "public-anon-key")
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+# ==========================================
+# INICIALIZACIÓN DE SUPABASE DATABASE
+# ==========================================
+supabaseClient = None
+if "supabase.co" in SUPABASE_URL:
+    try:
+        from supabase import create_client
+        supabaseClient = create_client(SUPABASE_URL, SUPABASE_KEY)
+        print("✅ Supabase iniciado en Servidor 2.")
+    except Exception as e:
+        print(f"⚠️ No se pudo inicializar Supabase SDK: {e}")
 
-if SUPABASE_URL and SUPABASE_KEY:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-else:
-    supabase = None
+# ==========================================
+# RUTAS DE API REST
+# ==========================================
 
-# --- RUTAS ---
-@app.route("/manifest.json")
+@app.route('/api/v1/estado', methods=['GET'])
+def estado():
+    return jsonify({
+        "status": "online",
+        "modulo": "Servidor 2 - Mensajería & Contenido Multimedial",
+        "centro_de_mando": SERVIDOR_1_URL,
+        "supabase_activo": supabaseClient is not None,
+        "timestamp": datetime.utcnow().isoformat()
+    }), 200
+
+@app.route('/api/v1/recibir', methods=['POST'])
+def recibir_desde_servidor1():
+    auth_header = request.headers.get('Authorization', '')
+    token = auth_header.replace('Bearer ', '').strip()
+
+    if token != TOKEN_ENLACE:
+        return jsonify({"status": "error", "message": "Token inválido."}), 403
+
+    datos = request.get_json() or {}
+    sender_id = datos.get('sender_id', 'sistema_s1')
+    receiver_id = datos.get('receiver_id', 'usuario_s2')
+    content = datos.get('content', '')
+
+    if not content:
+        return jsonify({"status": "error", "message": "Mensaje vacío"}), 400
+
+    if supabaseClient:
+        try:
+            supabaseClient.table('messages').insert([
+                {"sender_id": sender_id, "receiver_id": receiver_id, "content": content}
+            ]).execute()
+        except Exception as e:
+            print(f"Error guardando en Supabase desde S1: {e}")
+
+    return jsonify({
+        "status": "success",
+        "message": "Mensaje recibido en Servidor 2",
+        "timestamp": datetime.utcnow().isoformat()
+    }), 200
+
+@app.route('/api/v1/enviar', methods=['POST'])
+def enviar_a_servidor1():
+    datos = request.get_json() or {}
+    usuario_id = datos.get('usuario_id', 'anonimo_s2')
+    destino_id = datos.get('destino_id', 'amiti_ia')
+    mensaje = datos.get('mensaje', '').strip()
+
+    if not mensaje:
+        return jsonify({"status": "error", "message": "El mensaje no puede estar vacío"}), 400
+
+    if supabaseClient:
+        try:
+            supabaseClient.table('messages').insert([
+                {"sender_id": usuario_id, "receiver_id": destino_id, "content": mensaje}
+            ]).execute()
+        except Exception as e:
+            print(f"Error guardando mensaje local: {e}")
+
+    endpoint_s1 = f"{SERVIDOR_1_URL.rstrip('/')}/api/v1/mensaje_entrante"
+    headers = {
+        "Authorization": f"Bearer {TOKEN_ENLACE}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "sender_id": usuario_id,
+        "receiver_id": destino_id,
+        "content": mensaje,
+        "origen": "Servidor_2_Mensajeria"
+    }
+
+    try:
+        res = requests.post(endpoint_s1, json=payload, headers=headers, timeout=10)
+        if res.status_code == 200:
+            data_respuesta = res.json()
+            return jsonify({
+                "status": "success",
+                "servidor_1_response": data_respuesta,
+                "respuesta_amiti": data_respuesta.get("respuesta_amiti", None)
+            }), 200
+        else:
+            return jsonify({"status": "warning", "detalle": res.text}), 502
+    except Exception as e:
+        return jsonify({"status": "error", "error_detalle": str(e)}), 504
+
+# ==========================================
+# PWA ARCHIVOS DE SOPORTE
+# ==========================================
+
+@app.route('/manifest.json')
 def manifest():
     return jsonify({
-        "short_name": "SpatialNet",
-        "name": "Spatial Social Network",
-        "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/2097/2097276.png", "type": "image/png", "sizes": "192x192"}],
+        "name": "Mensajería & Videos S2",
+        "short_name": "SpatialS2",
         "start_url": "/",
-        "background_color": "#090a10",
-        "theme_color": "#a855f7",
-        "display": "standalone"
+        "display": "standalone",
+        "background_color": "#050508",
+        "theme_color": "#10b981",
+        "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/2665/2665038.png", "sizes": "512x512", "type": "image/png"}]
     })
 
-@app.route("/")
-def portada():
-    html_publico = """
+@app.route('/sw.js')
+def service_worker():
+    sw_code = """
+    const CACHE_NAME = 'spatial-v2';
+    self.addEventListener('install', (e) => {
+        e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(['/', '/manifest.json'])));
+    });
+    self.addEventListener('fetch', (e) => {
+        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    });
+    """
+    return Response(sw_code, mimetype='application/javascript')
+
+# ==========================================
+# INTERFAZ FRONTEND (CON FEED DE VIDEOS)
+# ==========================================
+
+HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spatial Network</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Servidor 2 - Mensajería & Videos</title>
     <link rel="manifest" href="/manifest.json">
-    <!-- Librerías para QR Code y Escáner de Cámara -->
+    <meta name="theme-color" content="#050508">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { background: #090a10; color: #ffffff; min-height: 100vh; overflow: hidden; }
+        :root {
+            --bg-dark: #050508;
+            --bg-card: #0f111a;
+            --bg-input: #181b26;
+            --accent: #10b981;
+            --accent-hover: #059669;
+            --amiti-purple: #7c3aed;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border: #1f2433;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
         
-        /* AUTH CONTAINER */
-        .auth-container { background: radial-gradient(circle at top, #1c1335, #090a10); width: 100%; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .card { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(16px); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 24px; padding: 25px; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); text-align: center; }
-        h1 { font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #c084fc, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 6px; }
-        p.sub { font-size: 0.85rem; color: #94a3b8; margin-bottom: 20px; }
-        
-        .tabs { display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 20px; }
-        .tab-btn { flex: 1; padding: 10px; background: none; border: none; color: #94a3b8; font-size: 0.85rem; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
-        .tab-btn.active { color: #a855f7; border-bottom-color: #a855f7; }
-        
-        .form-group { margin-bottom: 15px; text-align: left; }
-        label { font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px; }
-        input, select, textarea { width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; color: #fff; font-size: 0.95rem; outline: none; }
-        
-        button.btn-submit { width: 100%; padding: 12px; background: linear-gradient(135deg, #a855f7, #6366f1); border: none; border-radius: 12px; color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4); }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
 
-        /* INTERFAZ PRINCIPAL */
-        #app-view { display: none; flex-direction: column; width: 100%; height: 100vh; background-color: #090a10; position: relative; }
-        .header-app { padding: 16px; font-size: 1.3em; font-weight: 800; background: #0f111a; border-bottom: 1px solid #1e202e; display: flex; justify-content: space-between; align-items: center; }
-        .header-title { background: linear-gradient(135deg, #c084fc, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .header-icons { display: flex; gap: 15px; font-size: 1.2rem; cursor: pointer; color: #a855f7; }
+        /* Views Layout */
+        .view { display: none; flex: 1; flex-direction: column; height: calc(100vh - 60px); overflow: hidden; position: relative; }
+        .view.active { display: flex; }
 
-        /* SECCIONES DE NAVEGACIÓN */
-        .section-view { display: none; flex-direction: column; flex: 1; overflow-y: auto; padding-bottom: 75px; }
-        .section-view.active { display: flex; }
+        /* Auth Screen */
+        .auth-container { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; background: radial-gradient(circle at center, #062e22 0%, var(--bg-dark) 100%); }
+        .auth-box { width: 100%; max-width: 380px; background: var(--bg-card); border: 1px solid var(--border); padding: 28px; border-radius: 20px; display: flex; flex-direction: column; gap: 16px; }
 
-        .search-box { padding: 12px 16px; }
-        .search-input { width: 100%; padding: 10px 16px; background: #151824; border: 1px solid #252836; border-radius: 20px; color: #fff; font-size: 0.9rem; outline: none; }
+        /* UI Base Elements */
+        .input-field { background: var(--bg-input); border: 1px solid var(--border); padding: 14px; border-radius: 12px; color: white; outline: none; font-size: 15px; }
+        .input-field:focus { border-color: var(--accent); }
+        .btn-primary { background: var(--accent); color: white; border: none; padding: 14px; border-radius: 12px; font-weight: bold; font-size: 15px; cursor: pointer; text-align: center; }
+        .btn-primary:active { background: var(--accent-hover); }
 
-        /* LISTA DE CHATS Y CONTACTOS */
-        .chat-list { display: flex; flex-direction: column; }
-        .chat-item { display: flex; align-items: center; padding: 12px 16px; gap: 14px; text-decoration: none; color: white; cursor: pointer; border-bottom: 1px solid #121420; }
-        .chat-item:active { background-color: #151824; }
-        .avatar { width: 50px; height: 50px; background: #252836; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; overflow: hidden; font-size: 1.1rem; color: #a855f7; position: relative; }
-        .avatar img, .avatar video { width: 100%; height: 100%; object-fit: cover; }
-        .chat-info { display: flex; flex-direction: column; gap: 3px; flex: 1; overflow: hidden; }
-        .chat-top-line { display: flex; justify-content: space-between; align-items: center; }
-        .chat-name { font-weight: 700; font-size: 0.98rem; color: #f1f5f9; }
-        .chat-time { font-size: 0.75rem; color: #64748b; }
-        .chat-preview { font-size: 0.85rem; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* Navigation */
+        .nav-bar { display: flex; background: var(--bg-card); border-top: 1px solid var(--border); height: 60px; position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--text-muted); font-size: 11px; cursor: pointer; }
+        .nav-item.active { color: var(--accent); font-weight: bold; }
 
-        .badge-type { background: rgba(168, 85, 247, 0.2); color: #c084fc; font-size: 0.68rem; padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(168, 85, 247, 0.4); margin-left: 6px; }
+        .header-bar { padding: 14px 16px; background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 17px; }
 
-        .empty-state { padding: 40px 20px; text-align: center; color: #64748b; font-size: 0.9rem; }
+        /* Chat Components */
+        .chat-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+        .chat-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .chat-messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #08090f; }
+        .message-bubble { max-width: 82%; padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.4; word-break: break-word; }
+        .message-bubble.sent { background: var(--accent); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .message-bubble.received { background: var(--bg-input); color: var(--text-main); align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+        .message-bubble.amiti { background: var(--amiti-purple); color: white; align-self: flex-start; border-bottom-left-radius: 4px; }
 
-        /* BOTONES FLOTANTES (FAB) */
-        .fab { position: fixed; bottom: 80px; right: 20px; width: 56px; height: 56px; background: linear-gradient(135deg, #a855f7, #6366f1); border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; box-shadow: 0 8px 20px rgba(168, 85, 247, 0.5); cursor: pointer; z-index: 5; }
-        .fab-support { position: fixed; bottom: 148px; right: 20px; width: 50px; height: 50px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: white; box-shadow: 0 6px 15px rgba(16, 185, 129, 0.4); cursor: pointer; z-index: 5; transition: transform 0.2s; }
-        .fab-support:active { transform: scale(0.92); }
+        /* TikTok Feed Component */
+        .tiktok-feed { flex: 1; overflow-y: scroll; scroll-snap-type: y mandatory; background: #000; height: 100%; }
+        .tiktok-card { height: 100%; width: 100%; scroll-snap-align: start; scroll-snap-stop: always; position: relative; display: flex; justify-content: center; align-items: center; background: #000; }
+        .tiktok-card video, .tiktok-card iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
 
-        /* NOVEDADES / ESTADOS */
-        .section-subtitle { padding: 15px 16px 5px; font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-        .status-ring { padding: 2px; border: 2px solid #a855f7; border-radius: 50%; }
-        .add-status-badge { position: absolute; bottom: 0; right: 0; background: #a855f7; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; border: 2px solid #090a10; }
+        .badge { background: rgba(16, 185, 129, 0.2); color: var(--accent); padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+        .badge-s1 { background: rgba(124, 58, 237, 0.2); color: var(--amiti-purple); padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; }
 
-        /* ACCIONES Y LISTAS */
-        .action-item { display: flex; align-items: center; padding: 12px 16px; gap: 15px; cursor: pointer; border-bottom: 1px solid #121420; }
-        .action-icon { width: 44px; height: 44px; background: rgba(168, 85, 247, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #a855f7; }
-        .action-text { font-weight: 600; font-size: 0.95rem; color: #f1f5f9; }
-
-        /* PERFIL Y MENÚ */
-        .profile-header-card { padding: 25px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; background: radial-gradient(circle at top, #1b1333, transparent); border-bottom: 1px solid #1e202e; cursor: pointer; transition: background 0.2s; }
-        .profile-header-card:hover { background: rgba(168, 85, 247, 0.08); }
-        .profile-avatar-lg { width: 100px; height: 100px; border-radius: 50%; background: #252836; border: 3px solid #a855f7; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; margin-bottom: 10px; }
-        .profile-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
-        .status-thought-bubble { background: #1e2030; border: 1px solid #33374d; padding: 6px 14px; border-radius: 15px; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 8px; }
-        .profile-name-lg { font-size: 1.25rem; font-weight: 800; color: #fff; }
-        .profile-handle { font-size: 0.85rem; color: #94a3b8; }
-        .profile-contact-info { font-size: 0.8rem; color: #a855f7; margin-top: 4px; font-weight: 600; }
-
-        .settings-list { padding: 15px 16px; display: flex; flex-direction: column; gap: 8px; }
-        .setting-card { display: flex; align-items: center; padding: 14px; background: #121420; border-radius: 16px; gap: 15px; border: 1px solid #1e202e; cursor: pointer; }
-        .setting-icon { font-size: 1.2rem; color: #a855f7; width: 30px; text-align: center; }
-        .setting-info { display: flex; flex-direction: column; gap: 2px; }
-        .setting-title { font-size: 0.95rem; font-weight: 700; color: #f1f5f9; }
-        .setting-desc { font-size: 0.8rem; color: #64748b; }
-
-        /* VISTA CHAT INDIVIDUAL */
-        #chat-room-view { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #090a10; z-index: 20; flex-direction: column; }
-        .chat-room-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #0f111a; border-bottom: 1px solid #1e202e; }
-        .back-btn { font-size: 1.4rem; color: #a855f7; background: none; border: none; cursor: pointer; }
-        .messages-container { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #06070a; }
-        .msg-bubble { max-width: 75%; padding: 10px 14px; border-radius: 16px; font-size: 0.92rem; line-height: 1.35; }
-        .msg-bubble.received { background: #151824; color: #fff; align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid #202436; }
-        .msg-bubble.sent { background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
-        .chat-input-bar { display: flex; padding: 12px 16px; background: #0f111a; border-top: 1px solid #1e202e; gap: 10px; align-items: center; }
-        .chat-input-bar input { flex: 1; padding: 10px 16px; background: #151824; border: 1px solid #252836; border-radius: 20px; color: #fff; outline: none; }
-        .send-btn { background: #a855f7; color: white; border: none; padding: 10px 18px; border-radius: 20px; font-weight: bold; cursor: pointer; }
-
-        /* BARRA DE NAVEGACIÓN INFERIOR */
-        .nav-bar { position: fixed; bottom: 0; width: 100%; display: flex; justify-content: space-around; padding: 10px 0; background: #0f111a; border-top: 1px solid #1e202e; font-size: 0.8rem; z-index: 10; }
-        .nav-item { color: #64748b; text-align: center; text-decoration: none; cursor: pointer; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        .nav-item .icon { font-size: 1.2rem; }
-        .nav-item.active { color: #a855f7; font-weight: bold; }
-
-        /* MODALES */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); justify-content: center; align-items: center; z-index: 30; }
-        .modal-content { background: #121420; padding: 22px; border-radius: 20px; width: 90%; max-width: 380px; border: 1px solid #252836; max-height: 90vh; overflow-y: auto; }
-
-        .qr-box { display: flex; flex-direction: column; align-items: center; gap: 15px; margin: 15px 0; }
-        .qr-box canvas { background: white; padding: 10px; border-radius: 12px; }
-        #qr-reader { width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #a855f7; margin-top: 10px; }
-        .status-viewer-media { width: 100%; max-height: 350px; object-fit: contain; border-radius: 12px; margin-top: 10px; }
-        .video-player-frame { width: 100%; height: 210px; border-radius: 12px; border: none; margin-top: 10px; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+        .modal.active { display: flex; }
+        .modal-content { background: var(--bg-card); border-radius: 20px; padding: 20px; border: 1px solid var(--border); width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 14px; }
     </style>
 </head>
 <body>
-    
-    <!-- INGRESO / REGISTRO -->
-    <div class="auth-container" id="auth-view">
-        <div class="card">
-            <h1>SPATIAL NETWORK</h1>
-            <p class="sub">Red Social y Mensajería Global</p>
-            
-            <div class="tabs">
-                <button class="tab-btn active" id="tab-login" onclick="setModo('login')">Ingresar</button>
-                <button class="tab-btn" id="tab-reg" onclick="setModo('reg')">Registrarse</button>
-            </div>
 
-            <form onsubmit="procesarAuth(event)">
-                <div class="form-group" id="grp-user" style="display:none;">
-                    <label>Nombre Completo</label>
-                    <input type="text" id="reg-name" placeholder="Tu nombre">
-                </div>
-                <div class="form-group" id="grp-handle" style="display:none;">
-                    <label>Usuario (@tag)</label>
-                    <input type="text" id="reg-handle" placeholder="@usuario">
-                </div>
-
-                <div class="form-group">
-                    <label>Correo o Teléfono</label>
-                    <input type="text" id="identificador" placeholder="Correo o Teléfono" required>
-                </div>
-                <div class="form-group">
-                    <label>Contraseña</label>
-                    <input type="password" id="password" placeholder="••••••••" required>
-                </div>
-                <button class="btn-submit" type="submit" id="btn-text">Ingresar a la Red</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- INTERFAZ PRINCIPAL -->
-    <div id="app-view">
-        <div class="header-app">
-            <span class="header-title" id="header-main-title">Spatial Network</span>
-            <div class="header-icons">
-                <span onclick="abrirSincronizacion('scan')" title="Escanear QR">📷</span>
-                <span onclick="abrirSincronizacion('num')" title="Agregar contacto">➕</span>
-                <span onclick="abrirModalEditarPerfil()" title="Editar Perfil">✏️</span>
-            </div>
-        </div>
-
-        <!-- PANTALLA 1: CHATS -->
-        <div class="section-view active" id="sec-chats">
-            <div class="search-box">
-                <input type="text" class="search-input" placeholder="🔍 Buscar chats..." onkeyup="filtrarLista(this.value, 'chats-container')">
-            </div>
-
-            <div class="chat-list" id="chats-container">
-                <div class="empty-state">No tienes chats iniciados.<br>Agrega contactos, grupos o escanea un QR.</div>
-            </div>
-
-            <!-- BOTÓN DE SOPORTE AMITI -->
-            <div class="fab-support" onclick="abrirChatSoporteAmiti()" title="Soporte Técnico Amiti IA">🤖</div>
-            
-            <!-- BOTÓN DE CONTACTOS -->
-            <div class="fab" onclick="cambiarSeccion('sec-contactos', document.querySelectorAll('.nav-item')[2])">💬</div>
-        </div>
-
-        <!-- PANTALLA 2: NOVEDADES / ESTADOS -->
-        <div class="section-view" id="sec-novedades">
-            <div class="section-subtitle">Mi Estado</div>
-            
-            <div class="chat-item" onclick="abrirModalPublicarEstado()">
-                <div class="avatar" id="my-status-avatar-box">
-                    <span id="my-status-avatar-txt">👤</span>
-                    <div class="add-status-badge">+</div>
-                </div>
-                <div class="chat-info">
-                    <span class="chat-name">Añadir estado</span>
-                    <span class="chat-preview">Sube una imagen, video o texto (24h)</span>
-                </div>
-            </div>
-
-            <div class="section-subtitle">Estados Recientes</div>
-            <div class="chat-list" id="status-list-container">
-                <div class="empty-state">No hay estados recientes.</div>
-            </div>
-        </div>
-
-        <!-- PANTALLA 3: CONTACTOS, GRUPOS Y COMUNIDADES -->
-        <div class="section-view" id="sec-contactos">
-            <div class="search-box">
-                <input type="text" class="search-input" placeholder="🔍 Buscar contactos o comunidades..." onkeyup="filtrarLista(this.value, 'contacts-list-container')">
-            </div>
-
-            <div class="action-item" onclick="abrirChatSoporteAmiti()">
-                <div class="action-icon">🤖</div>
-                <span class="action-text">Soporte Técnico Amiti IA</span>
-            </div>
-
-            <div class="action-item" onclick="abrirSincronizacion('num')">
-                <div class="action-icon">👤➕</div>
-                <span class="action-text">Nuevo Contacto / Escanear QR</span>
-            </div>
-
-            <div class="action-item" onclick="abrirModalCrearGrupo()">
-                <div class="action-icon">👥➕</div>
-                <span class="action-text">Crear Grupo</span>
-            </div>
-
-            <div class="action-item" onclick="abrirModalCrearComunidad()">
-                <div class="action-icon">🌐➕</div>
-                <span class="action-text">Crear Comunidad</span>
-            </div>
-
-            <div class="section-subtitle">Contactos y Espacios Sincronizados</div>
-            <div class="chat-list" id="contacts-list-container"></div>
-        </div>
-
-        <!-- PANTALLA 4: MENÚ / PERFIL -->
-        <div class="section-view" id="sec-perfil">
-            <div class="profile-header-card" onclick="abrirModalEditarPerfil()">
-                <div class="status-thought-bubble">
-                    💭 <span id="profile-thought-text">Ahora mismo estoy...</span>
-                </div>
-
-                <div class="profile-avatar-lg" id="profile-lg-box">👤</div>
-                
-                <div class="profile-name-lg" id="profile-lg-name">Usuario</div>
-                <div class="profile-handle" id="profile-lg-handle">@usuario</div>
-                <div class="profile-contact-info" id="profile-lg-contact">Contacto: Privado</div>
-            </div>
-
-            <div class="settings-list">
-                <div class="setting-card" onclick="abrirModalReproductorVideo()">
-                    <div class="setting-icon">🎬</div>
-                    <div class="setting-info">
-                        <span class="setting-title">Reproductor de Video</span>
-                        <span class="setting-desc">Ver videos de YouTube, TikTok o enlaces Web</span>
-                    </div>
-                </div>
-                <div class="setting-card" onclick="abrirModalEditarPerfil()">
-                    <div class="setting-icon">✏️</div>
-                    <div class="setting-info">
-                        <span class="setting-title">Editar Perfil</span>
-                        <span class="setting-desc">Foto, nombre, usuario y privacidad</span>
-                    </div>
-                </div>
-                <div class="setting-card" onclick="abrirSincronizacion('qr')">
-                    <div class="setting-icon">📱</div>
-                    <div class="setting-info">
-                        <span class="setting-title">Mi Código QR / Escáner</span>
-                        <span class="setting-desc">Muestra o escanea un código con tu cámara</span>
-                    </div>
-                </div>
-                <div class="setting-card" onclick="abrirModalCrearGrupo()">
-                    <div class="setting-icon">👥</div>
-                    <div class="setting-info">
-                        <span class="setting-title">Crear Nuevo Grupo</span>
-                        <span class="setting-desc">Chatea con múltiples personas</span>
-                    </div>
-                </div>
-                <div class="setting-card" onclick="abrirModalCrearComunidad()">
-                    <div class="setting-icon">🌐</div>
-                    <div class="setting-info">
-                        <span class="setting-title">Crear Comunidad</span>
-                        <span class="setting-desc">Organiza canales y salas temáticas</span>
-                    </div>
-                </div>
-                <div class="setting-card" onclick="cerrarSesion()" style="border-color: rgba(239, 68, 68, 0.3);">
-                    <div class="setting-icon" style="color: #ef4444;">🚪</div>
-                    <div class="setting-info">
-                        <span class="setting-title" style="color: #ef4444;">Cerrar Sesión</span>
-                        <span class="setting-desc">Salir de tu cuenta</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- VISTA SALA DE CHAT INDIVIDUAL O GRUPAL -->
-        <div id="chat-room-view">
-            <div class="chat-room-header">
-                <button class="back-btn" onclick="cerrarChat()">←</button>
-                <div class="avatar" id="room-avatar" style="width:40px; height:40px; font-size:1rem;">?</div>
-                <div>
-                    <h4 id="room-name" style="font-size: 0.98rem;">Contacto</h4>
-                    <span id="room-status" style="font-size: 0.75rem; color: #a855f7;">En línea</span>
-                </div>
-            </div>
-
-            <div class="messages-container" id="room-messages"></div>
-
-            <div class="chat-input-bar">
-                <input type="text" id="input-msg" placeholder="Escribe un mensaje..." onkeypress="if(event.key==='Enter') enviarMensaje()">
-                <button class="send-btn" onclick="enviarMensaje()">Enviar</button>
-            </div>
-        </div>
-
-        <!-- BARRA DE NAVEGACIÓN INFERIOR -->
-        <div class="nav-bar">
-            <div class="nav-item active" onclick="cambiarSeccion('sec-chats', this)">
-                <span class="icon">💬</span>
-                <span>Chats</span>
-            </div>
-            <div class="nav-item" onclick="cambiarSeccion('sec-novedades', this)">
-                <span class="icon">⭕</span>
-                <span>Novedades</span>
-            </div>
-            <div class="nav-item" onclick="cambiarSeccion('sec-contactos', this)">
-                <span class="icon">👥</span>
-                <span>Contactos</span>
-            </div>
-            <div class="nav-item" onclick="cambiarSeccion('sec-perfil', this)">
-                <span class="icon">⚙️</span>
-                <span>Menú</span>
+    <!-- VISTA 0: LOGIN -->
+    <div id="view-auth" class="view active" style="height: 100vh;">
+        <div class="auth-container">
+            <div class="auth-box">
+                <h2 style="color:var(--accent); text-align:center;">Servidor 2</h2>
+                <p style="color:var(--text-muted); font-size:13px; text-align:center;">Mensajería & Videos Verticales</p>
+                <input type="text" id="auth-name" class="input-field" placeholder="Tu Nombre">
+                <input type="text" id="auth-handle" class="input-field" placeholder="@usuario">
+                <button class="btn-primary" onclick="iniciarSesion()">Ingresar</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL REPRODUCTOR DE VIDEO -->
-    <div class="modal" id="video-player-modal">
+    <!-- VISTA 1: CHATS -->
+    <div id="view-chats" class="view">
+        <div class="header-bar">
+            <span>Mensajes</span>
+            <span class="badge">S2 Online</span>
+        </div>
+        <div id="chats-list" class="chat-list"></div>
+    </div>
+
+    <!-- VISTA 2: CHAT ACTIVO -->
+    <div id="view-room" class="view">
+        <div class="header-bar">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button onclick="cerrarChat()" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">←</button>
+                <span id="room-title">@Chat</span>
+            </div>
+            <span class="badge-s1">S1 Enlazado</span>
+        </div>
+        <div id="chat-messages" class="chat-messages"></div>
+        <div style="padding: 12px; background: var(--bg-card); border-top: 1px solid var(--border); display: flex; gap: 8px;">
+            <input type="text" id="message-input" class="input-field" style="flex:1;" placeholder="Mensaje para S1 o Amiti IA..." onkeypress="if(event.key==='Enter') enviarMensajeLocal()">
+            <button class="btn-primary" style="padding:0 18px;" onclick="enviarMensajeLocal()">➤</button>
+        </div>
+    </div>
+
+    <!-- VISTA 3: REPRODUCTOR DE VIDEOS (TIKTOK FEED) -->
+    <div id="view-videos" class="view">
+        <div id="tiktok-feed" class="tiktok-feed"></div>
+    </div>
+
+    <!-- VISTA 4: AJUSTES -->
+    <div id="view-menu" class="view">
+        <div class="header-bar">Ajustes del Nodo</div>
+        <div style="padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+            <div style="background:var(--bg-card); padding:16px; border-radius:14px; border:1px solid var(--border);">
+                <div style="font-weight:bold;" id="menu-user-name">Usuario</div>
+                <div style="color:var(--text-muted); font-size:13px;" id="menu-user-handle">@handle</div>
+            </div>
+            <button class="btn-primary" onclick="abrirModal('modal-qr')">📷 Código QR y Escáner</button>
+            <button class="btn-primary" style="background:#374151;" onclick="cerrarSesion()">Cerrar Sesión</button>
+        </div>
+    </div>
+
+    <!-- BARRA NAVEGACIÓN -->
+    <div id="main-nav" class="nav-bar" style="display:none;">
+        <div class="nav-item active" id="nav-chats" onclick="cambiarTab('chats')">💬 Chats</div>
+        <div class="nav-item" id="nav-videos" onclick="cambiarTab('videos')">▶️ Videos</div>
+        <div class="nav-item" id="nav-menu" onclick="cambiarTab('menu')">⚙️ Menú</div>
+    </div>
+
+    <!-- MODAL QR -->
+    <div id="modal-qr" class="modal">
         <div class="modal-content">
-            <h3 style="margin-bottom: 15px; color: #a855f7;">Reproductor de Video</h3>
-            <div class="form-group">
-                <label>Enlace del Video (YouTube, MP4, Vimeo, etc.)</label>
-                <input type="text" id="video-url-input" placeholder="https://www.youtube.com/watch?v=...">
-            </div>
-            <button class="btn-submit" onclick="cargarVideoPlataforma()" style="margin-top:5px;">Cargar Video</button>
-            <div id="video-container-box" style="margin-top:15px;"></div>
-            <button type="button" onclick="cerrarModalReproductorVideo()" style="margin-top:15px; padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer; width:100%;">Cerrar</button>
+            <h3 style="text-align:center;">Mi QR</h3>
+            <div style="display:flex; justify-content:center; padding:10px;"><canvas id="qr-canvas"></canvas></div>
+            <div id="qr-reader" style="width:100%;"></div>
+            <button class="btn-primary" onclick="iniciarEscaner()">📷 Escanear Cámara</button>
+            <button class="btn-primary" style="background:#374151;" onclick="cerrarModal('modal-qr')">Cerrar</button>
         </div>
     </div>
 
-    <!-- MODAL EDITAR PERFIL -->
-    <div class="modal" id="edit-profile-modal">
-        <div class="modal-content">
-            <h3 style="margin-bottom: 15px; color: #a855f7;">Editar Perfil</h3>
-            <div class="form-group">
-                <label>Foto de Perfil (Galería)</label>
-                <input type="file" id="edit-avatar-file" accept="image/*" onchange="previewEditAvatar(event)">
-            </div>
-            <div class="form-group">
-                <label>Nombre Completo</label>
-                <input type="text" id="edit-name-input">
-            </div>
-            <div class="form-group">
-                <label>Usuario (@tag)</label>
-                <input type="text" id="edit-handle-input">
-            </div>
-            <div class="form-group">
-                <label>Teléfono o Correo</label>
-                <input type="text" id="edit-contact-input">
-            </div>
-            <div class="form-group">
-                <label>Visibilidad de mi Teléfono/Correo</label>
-                <select id="edit-privacy-select">
-                    <option value="publico">Público (Visible en el chat)</option>
-                    <option value="privado">Privado (Oculto para todos)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Pensamiento / Estado Actual</label>
-                <input type="text" id="edit-thought-input">
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn-submit" onclick="guardarPerfil()" style="margin-top:0;">Guardar</button>
-                <button type="button" onclick="cerrarModalEditarPerfil()" style="padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer;">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL PUBLICAR ESTADO -->
-    <div class="modal" id="publish-status-modal">
-        <div class="modal-content">
-            <h3 style="margin-bottom: 15px; color: #a855f7;">Publicar Estado</h3>
-            <div class="form-group">
-                <label>Seleccionar Imagen o Video</label>
-                <input type="file" id="status-media-file" accept="image/*,video/*" onchange="previewStatusMedia(event)">
-            </div>
-            <div class="form-group">
-                <label>Texto / Comentario (Opcional)</label>
-                <input type="text" id="status-text-input" placeholder="Escribe un comentario...">
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn-submit" onclick="guardarEstado()" style="margin-top:0;">Publicar</button>
-                <button type="button" onclick="cerrarModalPublicarEstado()" style="padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer;">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL CREAR GRUPO -->
-    <div class="modal" id="create-group-modal">
-        <div class="modal-content">
-            <h3 style="margin-bottom: 15px; color: #a855f7;">Crear Nuevo Grupo</h3>
-            <div class="form-group">
-                <label>Nombre del Grupo</label>
-                <input type="text" id="group-name-input" placeholder="Ej. Equipo Spatial">
-            </div>
-            <div class="form-group">
-                <label>Descripción</label>
-                <input type="text" id="group-desc-input" placeholder="Propósito del grupo...">
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn-submit" onclick="crearGrupo()" style="margin-top:0;">Crear Grupo</button>
-                <button type="button" onclick="cerrarModalCrearGrupo()" style="padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer;">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL CREAR COMUNIDAD -->
-    <div class="modal" id="create-community-modal">
-        <div class="modal-content">
-            <h3 style="margin-bottom: 15px; color: #a855f7;">Crear Comunidad</h3>
-            <div class="form-group">
-                <label>Nombre de la Comunidad</label>
-                <input type="text" id="community-name-input" placeholder="Ej. Developers Latam">
-            </div>
-            <div class="form-group">
-                <label>Descripción de la Comunidad</label>
-                <textarea id="community-desc-input" rows="3" placeholder="Información temática..."></textarea>
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn-submit" onclick="crearComunidad()" style="margin-top:0;">Crear Comunidad</button>
-                <button type="button" onclick="cerrarModalCrearComunidad()" style="padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer;">Cancelar</button>
-            </div>
-        </div>
-    </div>
-    <!-- MODAL VER ESTADO -->
-    <div class="modal" id="view-status-modal">
-        <div class="modal-content" style="text-align:center;">
-            <h3 id="status-view-title" style="color: #a855f7;">Estado</h3>
-            <p id="status-view-text" style="font-size:0.9rem; color:#cbd5e1; margin-top:5px;"></p>
-            <div id="status-view-media-container"></div>
-            <button type="button" onclick="cerrarModalVerEstado()" style="margin-top:15px; padding: 10px 20px; background: #a855f7; border: none; color: white; border-radius: 12px; cursor: pointer; width:100%;">Cerrar</button>
-        </div>
-    </div>
-
-    <!-- MODAL SINCRONIZAR, MI QR Y ESCÁNER DE CÁMARA -->
-    <div class="modal" id="sync-modal">
-        <div class="modal-content">
-            <h3 style="margin-bottom: 15px; color: #a855f7;">Sincronizar y QR</h3>
-            
-            <div class="tabs">
-                <button class="tab-btn active" id="tab-sync-num" onclick="setSyncMode('num')">Agregar</button>
-                <button class="tab-btn" id="tab-sync-qr" onclick="setSyncMode('qr')">Mi QR</button>
-                <button class="tab-btn" id="tab-sync-scan" onclick="setSyncMode('scan')">Escanear</button>
-            </div>
-
-            <div id="sync-sec-num">
-                <div class="form-group">
-                    <label>Ingresa el número o correo del usuario</label>
-                    <input type="text" id="sync-input" placeholder="Ingrese número o correo">
-                </div>
-                <button class="btn-submit" onclick="sincronizarContacto()">Agregar Amigo</button>
-            </div>
-
-            <div id="sync-sec-qr" style="display:none;" class="qr-box">
-                <p style="font-size:0.85rem; color:#aaa; text-align:center;">Muestra este código para que te agreguen:</p>
-                <canvas id="qr-canvas"></canvas>
-            </div>
-
-            <div id="sync-sec-scan" style="display:none;">
-                <p style="font-size:0.85rem; color:#aaa; text-align:center;">Apunta con tu cámara al código QR de tu amigo:</p>
-                <div id="qr-reader"></div>
-            </div>
-
-            <button type="button" onclick="cerrarSincronizacion()" style="margin-top:15px; padding: 12px; background: #1a1c2e; border: none; color: white; border-radius: 12px; cursor: pointer; width:100%;">Cerrar</button>
-        </div>
-    </div>
-
-    <!-- JAVASCRIPT CORREGIDO -->
     <script>
-        let usuarioActual = JSON.parse(localStorage.getItem('spatial_user')) || null;
-        let cuentasRegistradas = JSON.parse(localStorage.getItem('spatial_accounts')) || [];
-        let contactosBD = JSON.parse(localStorage.getItem('spatial_contacts')) || [];
-        let chatsBD = JSON.parse(localStorage.getItem('spatial_chats')) || {};
-        let estadosBD = JSON.parse(localStorage.getItem('spatial_statuses')) || [];
-        let ticketsSoporteBD = JSON.parse(localStorage.getItem('spatial_support_tickets')) || [];
+        const SERVIDOR_1_URL = "{{ servidor_1_url }}";
+        const SUPABASE_URL = "{{ supabase_url }}";
+        const SUPABASE_KEY = "{{ supabase_key }}";
 
-        let tempAvatarData = null;
-        let tempStatusMediaData = null;
-        let tempStatusMediaType = "";
-        let chatActualKey = "";
-        let html5QrCodeScanner = null;
-        let modoAuthActual = "login";
+        let supabaseClient = null;
+        if (SUPABASE_URL.includes("supabase.co")) {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        }
 
-        const AMITI_SUPPORT_OBJ = {
-            id: "amiti_support",
-            nombre: "Amiti (Soporte IA)",
-            contacto: "Centro de Soporte y Reportes",
-            tipo: "Soporte",
-            avatar: "🤖"
+        let usuario = JSON.parse(localStorage.getItem('spatial_s2_user')) || null;
+        let chatActivo = null;
+
+        // Lista de videos MP4 e Embeds
+        const listaVideos = [
+            "https://www.w3schools.com/html/mov_bbb.mp4",
+            "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1"
+        ];
+
+        window.onload = () => {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(e => console.log(e));
+            }
+            if (usuario) {
+                iniciarApp();
+            }
         };
 
-        window.onload = function() {
-            if (usuarioActual) {
-                mostrarAppPrincipal();
-            }
-        };
+        function iniciarSesion() {
+            const name = document.getElementById('auth-name').value.trim();
+            const handle = document.getElementById('auth-handle').value.trim();
+            if(!name || !handle) return alert('Completa todos los campos');
 
-        function solicitarPermisoNotificaciones() {
-            try {
-                if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-                    Notification.requestPermission();
-                }
-            } catch(e) { console.log(e); }
-        }
-
-        function lanzarNotificacion(titulo, cuerpo) {
-            if ("Notification" in window && Notification.permission === "granted") {
-                new Notification(titulo, {
-                    body: cuerpo,
-                    icon: "https://cdn-icons-png.flaticon.com/512/2097/2097276.png"
-                });
-            }
-        }
-
-        function setModo(modo) {
-            modoAuthActual = modo;
-            const btnLogin = document.getElementById('tab-login');
-            const btnReg = document.getElementById('tab-reg');
-            const grpUser = document.getElementById('grp-user');
-            const grpHandle = document.getElementById('grp-handle');
-            const btnText = document.getElementById('btn-text');
-
-            if (modo === 'login') {
-                btnLogin.classList.add('active');
-                btnReg.classList.remove('active');
-                grpUser.style.display = 'none';
-                grpHandle.style.display = 'none';
-                btnText.innerText = 'Ingresar a la Red';
-            } else {
-                btnReg.classList.add('active');
-                btnLogin.classList.remove('active');
-                grpUser.style.display = 'block';
-                grpHandle.style.display = 'block';
-                btnText.innerText = 'Crear cuenta';
-            }
-        }
-
-        function procesarAuth(event) {
-            event.preventDefault();
-            const identificador = document.getElementById('identificador').value.trim();
-            const password = document.getElementById('password').value.trim();
-
-            if (!identificador || !password) {
-                alert("Por favor completa tu correo/teléfono y contraseña.");
-                return;
-            }
-
-            if (modoAuthActual === 'reg') {
-                const regName = document.getElementById('reg-name').value.trim() || "Usuario";
-                const rawHandle = document.getElementById('reg-handle').value.trim() || "usuario";
-                const regHandle = rawHandle.startsWith('@') ? rawHandle : '@' + rawHandle;
-
-                const cuentaExiste = cuentasRegistradas.find(acc => acc.contacto === identificador);
-                if (cuentaExiste) {
-                    alert("Ya existe una cuenta con este correo/teléfono. Por favor inicia sesión.");
-                    setModo('login');
-                    return;
-                }
-
-                usuarioActual = {
-                    nombre: regName,
-                    handle: regHandle,
-                    contacto: identificador,
-                    password: password,
-                    privacidadContacto: "privado",
-                    pensamiento: "¡Hola! Estoy usando Spatial Network",
-                    fotoData: null
-                };
-
-                cuentasRegistradas.push(usuarioActual);
-                localStorage.setItem('spatial_accounts', JSON.stringify(cuentasRegistradas));
-                guardarSesion();
-                solicitarPermisoNotificaciones();
-                mostrarAppPrincipal();
-            } else {
-                let cuentaEncontrada = cuentasRegistradas.find(acc => acc.contacto === identificador && acc.password === password);
-                if (!cuentaEncontrada) {
-                    usuarioActual = {
-                        nombre: "Moises",
-                        handle: "@Jack",
-                        contacto: identificador,
-                        password: password,
-                        privacidadContacto: "privado",
-                        pensamiento: "¡Hola! Estoy usando Spatial Network",
-                        fotoData: null
-                    };
-                    cuentasRegistradas.push(usuarioActual);
-                    localStorage.setItem('spatial_accounts', JSON.stringify(cuentasRegistradas));
-                } else {
-                    usuarioActual = cuentaEncontrada;
-                }
-
-                guardarSesion();
-                solicitarPermisoNotificaciones();
-                mostrarAppPrincipal();
-            }
-        }
-
-        function guardarSesion() {
-            localStorage.setItem('spatial_user', JSON.stringify(usuarioActual));
+            usuario = { id: handle.replace('@','').toLowerCase(), name, handle: handle.startsWith('@') ? handle : '@' + handle };
+            localStorage.setItem('spatial_s2_user', JSON.stringify(usuario));
+            iniciarApp();
         }
 
         function cerrarSesion() {
-            localStorage.removeItem('spatial_user');
+            localStorage.removeItem('spatial_s2_user');
             location.reload();
         }
 
-        function mostrarAppPrincipal() {
-            document.getElementById('auth-view').style.display = 'none';
-            document.getElementById('app-view').style.display = 'flex';
-            actualizarPerfilDOM();
-            renderizarContactos();
-            renderizarChats();
-            renderizarEstados();
-        }
-
-        function abrirChatSoporteAmiti() {
-            abrirChat(AMITI_SUPPORT_OBJ);
-        }
-
-        function abrirModalReproductorVideo() {
-            document.getElementById('video-player-modal').style.display = 'flex';
-        }
-
-        function cerrarModalReproductorVideo() {
-            document.getElementById('video-player-modal').style.display = 'none';
-            document.getElementById('video-container-box').innerHTML = "";
-        }
-
-        function cargarVideoPlataforma() {
-            const url = document.getElementById('video-url-input').value.trim();
-            const box = document.getElementById('video-container-box');
-            if (!url) return;
-
-            let htmlEmbed = "";
-            if (url.includes("youtube.com") || url.includes("youtu.be")) {
-                let videoId = "";
-                if (url.includes("youtu.be/")) {
-                    videoId = url.split("youtu.be/")[1].split("?")[0];
-                } else if (url.includes("watch?v=")) {
-                    videoId = url.split("watch?v=")[1].split("&")[0];
-                }
-                if (videoId) {
-                    htmlEmbed = `<iframe class="video-player-frame" src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe>`;
-                }
-            } else if (url.includes("vimeo.com")) {
-                let vimeoId = url.split("vimeo.com/")[1].split("?")[0];
-                htmlEmbed = `<iframe class="video-player-frame" src="https://player.vimeo.com/video/${vimeoId}" allowfullscreen></iframe>`;
-            } else {
-                htmlEmbed = `<video src="${url}" controls style="width:100%; border-radius:12px; margin-top:10px;"></video>`;
-            }
-
-            box.innerHTML = htmlEmbed || `<p style="color:#ef4444; font-size:0.85rem; margin-top:10px;">Formato de enlace no válido.</p>`;
-        }
-
-        function abrirModalEditarPerfil() {
-            document.getElementById('edit-name-input').value = usuarioActual.nombre || "";
-            document.getElementById('edit-handle-input').value = usuarioActual.handle || "";
-            document.getElementById('edit-contact-input').value = usuarioActual.contacto || "";
-            document.getElementById('edit-privacy-select').value = usuarioActual.privacidadContacto || "privado";
-            document.getElementById('edit-thought-input').value = usuarioActual.pensamiento || "";
-            document.getElementById('edit-profile-modal').style.display = 'flex';
-        }
-
-        function cerrarModalEditarPerfil() {
-            document.getElementById('edit-profile-modal').style.display = 'none';
-        }
-
-        function previewEditAvatar(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    tempAvatarData = e.target.result;
-                }
-                reader.readAsDataURL(file);
-            }
-        }
-
-        function guardarPerfil() {
-            usuarioActual.nombre = document.getElementById('edit-name-input').value;
-            usuarioActual.handle = document.getElementById('edit-handle-input').value;
-            usuarioActual.contacto = document.getElementById('edit-contact-input').value;
-            usuarioActual.privacidadContacto = document.getElementById('edit-privacy-select').value;
-            usuarioActual.pensamiento = document.getElementById('edit-thought-input').value;
+        function iniciarApp() {
+            document.getElementById('view-auth').classList.remove('active');
+            document.getElementById('main-nav').style.display = 'flex';
+            document.getElementById('menu-user-name').innerText = usuario.name;
+            document.getElementById('menu-user-handle').innerText = usuario.handle;
             
-            if (tempAvatarData) {
-                usuarioActual.fotoData = tempAvatarData;
-            }
-
-            let idx = cuentasRegistradas.findIndex(acc => acc.contacto === usuarioActual.contacto);
-            if (idx !== -1) cuentasRegistradas[idx] = usuarioActual;
-            localStorage.setItem('spatial_accounts', JSON.stringify(cuentasRegistradas));
-
-            guardarSesion();
-            actualizarPerfilDOM();
-            renderizarContactos();
-            cerrarModalEditarPerfil();
+            generarQR();
+            cambiarTab('chats');
+            cargarVideos();
+            setInterval(sincronizarMensajes, 2500);
         }
 
-        function actualizarPerfilDOM() {
-            if (!usuarioActual) return;
-            document.getElementById('profile-lg-name').innerText = usuarioActual.nombre;
-            document.getElementById('profile-lg-handle').innerText = usuarioActual.handle;
-            document.getElementById('profile-thought-text').innerText = usuarioActual.pensamiento;
-            document.getElementById('profile-lg-contact').innerText = "Contacto: " + (usuarioActual.privacidadContacto === "publico" ? usuarioActual.contacto : "Privado 🔒");
-
-            if (usuarioActual.fotoData) {
-                const imgHTML = `<img src="${usuarioActual.fotoData}">`;
-                document.getElementById('profile-lg-box').innerHTML = imgHTML;
-                document.getElementById('my-status-avatar-box').innerHTML = imgHTML + `<div class="add-status-badge">+</div>`;
-            }
-        }
-
-        function abrirModalCrearGrupo() {
-            document.getElementById('create-group-modal').style.display = 'flex';
-        }
-
-        function cerrarModalCrearGrupo() {
-            document.getElementById('create-group-modal').style.display = 'none';
-        }
-
-        function crearGrupo() {
-            const nombre = document.getElementById('group-name-input').value.trim();
-            const desc = document.getElementById('group-desc-input').value.trim();
-            if (!nombre) return;
-
-            const grupoObj = {
-                id: "g_" + Date.now(),
-                nombre: nombre,
-                contacto: desc || "Grupo público",
-                tipo: "Grupo",
-                avatar: "👥"
-            };
-            contactosBD.push(grupoObj);
-            localStorage.setItem('spatial_contacts', JSON.stringify(contactosBD));
+        function cambiarTab(tab) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             
-            renderizarContactos();
-            document.getElementById('group-name-input').value = "";
-            document.getElementById('group-desc-input').value = "";
-            cerrarModalCrearGrupo();
-            abrirChat(grupoObj);
+            const viewTarget = document.getElementById(`view-${tab}`);
+            const navTarget = document.getElementById(`nav-${tab}`);
+            if(viewTarget) viewTarget.classList.add('active');
+            if(navTarget) navTarget.classList.add('active');
+
+            if(tab === 'chats') cargarListaChats();
         }
 
-        function abrirModalCrearComunidad() {
-            document.getElementById('create-community-modal').style.display = 'flex';
-        }
-
-        function cerrarModalCrearComunidad() {
-            document.getElementById('create-community-modal').style.display = 'none';
-        }
-
-        function crearComunidad() {
-            const nombre = document.getElementById('community-name-input').value.trim();
-            const desc = document.getElementById('community-desc-input').value.trim();
-            if (!nombre) return;
-
-            const comunidadObj = {
-                id: "com_" + Date.now(),
-                nombre: nombre,
-                contacto: desc || "Comunidad de Spatial",
-                tipo: "Comunidad",
-                avatar: "🌐"
-            };
-
-            contactosBD.push(comunidadObj);
-            localStorage.setItem('spatial_contacts', JSON.stringify(contactosBD));
-            
-            renderizarContactos();
-            document.getElementById('community-name-input').value = "";
-            document.getElementById('community-desc-input').value = "";
-            cerrarModalCrearComunidad();
-            abrirChat(comunidadObj);
-        }
-
-        function abrirModalPublicarEstado() {
-            document.getElementById('publish-status-modal').style.display = 'flex';
-        }
-
-        function cerrarModalPublicarEstado() {
-            document.getElementById('publish-status-modal').style.display = 'none';
-            tempStatusMediaData = null;
-        }
-
-        function previewStatusMedia(event) {
-            const file = event.target.files[0];
-            if (file) {
-                tempStatusMediaType = file.type.startsWith('video') ? 'video' : 'image';
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    tempStatusMediaData = e.target.result;
-                }
-                reader.readAsDataURL(file);
-            }
-        }
-
-        function guardarEstado() {
-            const texto = document.getElementById('status-text-input').value;
-            if (!tempStatusMediaData && !texto) return;
-
-            const nuevoEstado = {
-                id: Date.now(),
-                usuario: usuarioActual ? usuarioActual.nombre : "Usuario",
-                fotoPerfil: usuarioActual ? usuarioActual.fotoData : null,
-                media: tempStatusMediaData,
-                tipoMedia: tempStatusMediaType,
-                texto: texto,
-                hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            };
-
-            estadosBD.unshift(nuevoEstado);
-            localStorage.setItem('spatial_statuses', JSON.stringify(estadosBD));
-            renderizarEstados();
-            cerrarModalPublicarEstado();
-        }
-
-        function renderizarEstados() {
-            const container = document.getElementById('status-list-container');
-            if (!container) return;
-            if (estadosBD.length === 0) {
-                container.innerHTML = '<div class="empty-state">No hay estados recientes.</div>';
-                return;
-            }
-
-            container.innerHTML = "";
-            estadosBD.forEach(st => {
-                const item = document.createElement('div');
-                item.className = 'chat-item';
-                item.onclick = function() { verEstado(st); };
-                item.innerHTML = `
-                    <div class="status-ring">
-                        <div class="avatar">${st.fotoPerfil ? `<img src="${st.fotoPerfil}">` : '👤'}</div>
-                    </div>
-                    <div class="chat-info">
-                        <span class="chat-name">${st.usuario}</span>
-                        <span class="chat-time">${st.hora}</span>
-                    </div>
-                `;
-                container.appendChild(item);
-            });
-        }
-
-        function verEstado(st) {
-            document.getElementById('status-view-title').innerText = "Estado de " + st.usuario;
-            document.getElementById('status-view-text').innerText = st.texto || "";
-            const mediaBox = document.getElementById('status-view-media-container');
-            mediaBox.innerHTML = "";
-
-            if (st.media) {
-                if (st.tipoMedia === 'video') {
-                    mediaBox.innerHTML = `<video src="${st.media}" class="status-viewer-media" controls autoplay></video>`;
+        function cargarVideos() {
+            const feed = document.getElementById('tiktok-feed');
+            feed.innerHTML = '';
+            listaVideos.forEach(url => {
+                const card = document.createElement('div');
+                card.className = 'tiktok-card';
+                if(url.endsWith('.mp4')) {
+                    card.innerHTML = `<video src="${url}" controls loop playsinline></video>`;
                 } else {
-                    mediaBox.innerHTML = `<img src="${st.media}" class="status-viewer-media">`;
+                    card.innerHTML = `<iframe src="${url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
                 }
-            }
-
-            document.getElementById('view-status-modal').style.display = 'flex';
-        }
-
-        function cerrarModalVerEstado() {
-            document.getElementById('view-status-modal').style.display = 'none';
-        }
-
-        function abrirSincronizacion(modoInicial = 'num') {
-            document.getElementById('sync-modal').style.display = 'flex';
-            setSyncMode(modoInicial);
-        }
-
-        function cerrarSincronizacion() {
-            detenerEscanerCamara();
-            document.getElementById('sync-modal').style.display = 'none';
-        }
-
-        function setSyncMode(modo) {
-        document.getElementById('tab-sync-num').classList.toggle('active', modo === 'num');
-            document.getElementById('tab-sync-qr').classList.toggle('active', modo === 'qr');
-            document.getElementById('tab-sync-scan').classList.toggle('active', modo === 'scan');
-
-            document.getElementById('sync-sec-num').style.display = modo === 'num' ? 'block' : 'none';
-            document.getElementById('sync-sec-qr').style.display = modo === 'qr' ? 'flex' : 'none';
-            document.getElementById('sync-sec-scan').style.display = modo === 'scan' ? 'block' : 'none';
-
-            if (modo === 'qr') {
-                generarQR();
-                detenerEscanerCamara();
-            } else if (modo === 'scan') {
-                iniciarEscanerCamara();
-            } else {
-                detenerEscanerCamara();
-            }
-        }
-
-        function generarQR() {
-            if (usuarioActual) {
-                new QRious({
-                    element: document.getElementById('qr-canvas'),
-                    value: (usuarioActual.handle || '@usuario') + "|" + (usuarioActual.contacto || ''),
-                    size: 180
-                });
-            }
-        }
-
-        function iniciarEscanerCamara() {
-            if (!html5QrCodeScanner) {
-                html5QrCodeScanner = new Html5Qrcode("qr-reader");
-            }
-
-            html5QrCodeScanner.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 220, height: 220 } },
-                (decodedText) => { procesarQREscaneado(decodedText); },
-                () => {}
-            ).catch(err => console.error("Error cámara:", err));
-        }
-
-        function detenerEscanerCamara() {
-            if (html5QrCodeScanner && html5QrCodeScanner.isScanning) {
-                html5QrCodeScanner.stop().then(() => {
-                    html5QrCodeScanner.clear();
-                }).catch(err => console.error(err));
-            }
-        }
-
-        function procesarQREscaneado(codigoTexto) {
-            detenerEscanerCamara();
-            const partes = codigoTexto.split('|');
-            const handle = partes[0] || codigoTexto;
-            const contactoVal = partes[1] || codigoTexto;
-
-            const nuevoContacto = {
-                id: "c_" + Date.now(),
-                nombre: handle,
-                contacto: contactoVal,
-                privacidadContacto: "publico",
-                avatar: "👤"
-            };
-
-            contactosBD.push(nuevoContacto);
-            localStorage.setItem('spatial_contacts', JSON.stringify(contactosBD));
-            renderizarContactos();
-            cerrarSincronizacion();
-            abrirChat(nuevoContacto);
-        }
-
-        function sincronizarContacto() {
-            const val = document.getElementById('sync-input').value.trim();
-            if (!val) return;
-
-            const nuevoContacto = {
-                id: "c_" + Date.now(),
-                nombre: val,
-                contacto: val,
-                privacidadContacto: "publico",
-                avatar: "👤"
-            };
-
-            contactosBD.push(nuevoContacto);
-            localStorage.setItem('spatial_contacts', JSON.stringify(contactosBD));
-            renderizarContactos();
-            document.getElementById('sync-input').value = '';
-            cerrarSincronizacion();
-            abrirChat(nuevoContacto);
-        }
-
-        function renderizarContactos() {
-            const container = document.getElementById('contacts-list-container');
-            if (!container) return;
-
-            const miFoto = (usuarioActual && usuarioActual.fotoData) ? `<img src="${usuarioActual.fotoData}">` : '👤';
-            const miNombre = (usuarioActual && usuarioActual.nombre) ? usuarioActual.nombre : 'Mi Espacio';
-
-            let itemsHTML = `
-                <div class="chat-item" onclick="abrirMiChatPropio()">
-                    <div class="avatar" id="contact-self-avatar">${miFoto}</div>
-                    <div class="chat-info">
-                        <span class="chat-name" id="contact-self-name">${miNombre} (Tú)</span>
-                        <span class="chat-preview">Mensajes y notas personales</span>
-                    </div>
-                </div>
-            `;
-
-            contactosBD.forEach(c => {
-                const tipoBadge = c.tipo ? `<span class="badge-type">${c.tipo}</span>` : '';
-                const avatarContent = (c.avatar && c.avatar.startsWith('data:')) ? `<img src="${c.avatar}">` : (c.avatar || '👤');
-                itemsHTML += `
-                    <div class="chat-item" onclick='abrirChat(${JSON.stringify(c)})'>
-                        <div class="avatar">${avatarContent}</div>
-                        <div class="chat-info">
-                            <span class="chat-name">${c.nombre}${tipoBadge}</span>
-                            <span class="chat-preview">${c.contacto}</span>
-                        </div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = itemsHTML;
-        }
-
-        function renderizarChats() {
-            const container = document.getElementById('chats-container');
-            if (!container) return;
-
-            const keys = Object.keys(chatsBD);
-            if (keys.length === 0) {
-                container.innerHTML = '<div class="empty-state">No tienes chats iniciados.<br>Agrega contactos, grupos o escanea un QR.</div>';
-                return;
-            }
-
-            container.innerHTML = "";
-            keys.forEach(k => {
-                const chat = chatsBD[k];
-                const ultimoMsg = chat.mensajes.length > 0 ? chat.mensajes[chat.mensajes.length - 1].texto : "Sin mensajes";
-                const item = document.createElement('div');
-                item.className = 'chat-item';
-                item.onclick = function() { abrirChat(chat.contactoObj); };
-                const tipoBadge = chat.contactoObj.tipo ? `<span class="badge-type">${chat.contactoObj.tipo}</span>` : '';
-                item.innerHTML = `
-                    <div class="avatar">${chat.contactoObj.avatar && chat.contactoObj.avatar.startsWith('data:') ? `<img src="${chat.contactoObj.avatar}">` : (chat.contactoObj.avatar || '👤')}</div>
-                    <div class="chat-info">
-                        <div class="chat-top-line">
-                            <span class="chat-name">${chat.contactoObj.nombre}${tipoBadge}</span>
-                            <span class="chat-time">${chat.mensajes.length > 0 ? chat.mensajes[chat.mensajes.length - 1].hora : ''}</span>
-                        </div>
-                        <span class="chat-preview">${ultimoMsg}</span>
-                    </div>
-                `;
-                container.appendChild(item);
+                feed.appendChild(card);
             });
         }
 
-        function abrirChat(contactoObj) {
-            chatActualKey = contactoObj.id || contactoObj.nombre;
-            if (!chatsBD[chatActualKey]) {
-                chatsBD[chatActualKey] = {
-                    contactoObj: contactoObj,
-                    mensajes: []
-                };
-            }
-
-            const infoContacto = contactoObj.tipo ? contactoObj.contacto : (contactoObj.privacidadContacto === "publico" ? contactoObj.contacto : "🔒 Privado");
-            document.getElementById('room-name').innerText = contactoObj.nombre;
-            document.getElementById('room-status').innerText = infoContacto;
-
-            const avatarBox = document.getElementById('room-avatar');
-            if (contactoObj.avatar && contactoObj.avatar.startsWith('data:')) {
-                avatarBox.innerHTML = `<img src="${contactoObj.avatar}">`;
-            } else {
-                avatarBox.innerText = contactoObj.avatar || "👤";
-            }
-
-            cargarMensajesDOM();
-            document.getElementById('chat-room-view').style.display = 'flex';
-        }
-
-        function abrirMiChatPropio() {
-            if (!usuarioActual) return;
-            abrirChat({
-                id: "self",
-                nombre: usuarioActual.nombre + " (Tú)",
-                contacto: usuarioActual.contacto,
-                privacidadContacto: usuarioActual.privacidadContacto,
-                avatar: usuarioActual.fotoData || "👤"
-            });
+        function abrirChatCon(id, nombre) {
+            chatActivo = id;
+            document.getElementById('room-title').innerText = nombre;
+            document.getElementById('chat-messages').innerHTML = '';
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-room').classList.add('active');
+            sincronizarMensajes();
         }
 
         function cerrarChat() {
-            document.getElementById('chat-room-view').style.display = 'none';
-            renderizarChats();
+            chatActivo = null;
+            cambiarTab('chats');
         }
 
-        function enviarMensaje() {
-            const input = document.getElementById('input-msg');
+        async function enviarMensajeLocal() {
+            const input = document.getElementById('message-input');
             const texto = input.value.trim();
-            if (!texto || !chatActualKey) return;
+            if(!texto || !chatActivo) return;
 
-            const horaActual = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const nuevoMsg = {
-                emisor: usuarioActual ? usuarioActual.nombre : "Usuario",
-                texto: texto,
-                hora: horaActual
-            };
+            renderBubble(texto, 'sent');
+            input.value = '';
 
-            chatsBD[chatActualKey].mensajes.push(nuevoMsg);
-            localStorage.setItem('spatial_chats', JSON.stringify(chatsBD));
-
-            input.value = "";
-            cargarMensajesDOM();
-
-            if (chatActualKey === "amiti_support") {
-                ticketsSoporteBD.push({
-                    usuario: usuarioActual ? usuarioActual.nombre : "Usuario",
-                    handle: usuarioActual ? usuarioActual.handle : "@usuario",
-                    contacto: usuarioActual ? usuarioActual.contacto : "",
-                    mensaje: texto,
-                    fecha: new Date().toLocaleString()
+            try {
+                const res = await fetch('/api/v1/enviar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        usuario_id: usuario.id,
+                        destino_id: chatActivo,
+                        mensaje: texto
+                    })
                 });
-                localStorage.setItem('spatial_support_tickets', JSON.stringify(ticketsSoporteBD));
-
-                setTimeout(() => {
-                    const respuestaAmiti = {
-                        emisor: "Amiti (Soporte IA)",
-                        texto: "¡Hola! He registrado tu mensaje para el equipo de desarrollo. Si se trata de una falla, la solucionaremos pronto. ¿Deseas agregar más detalles?",
-                        hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    };
-                    chatsBD[chatActualKey].mensajes.push(respuestaAmiti);
-                    localStorage.setItem('spatial_chats', JSON.stringify(chatsBD));
-                    cargarMensajesDOM();
-                    lanzarNotificacion("Amiti (Soporte)", "Te ha enviado una respuesta sobre tu reporte.");
-                }, 1000);
+                const data = await res.json();
+                
+                if (data.respuesta_amiti) {
+                    renderBubble(data.respuesta_amiti, 'amiti');
+                }
+            } catch(e) {
+                renderBubble("⚠️ Error al conectar con S1", 'received');
             }
         }
 
-        function cargarMensajesDOM() {
-            const msgBox = document.getElementById('room-messages');
-            if (!msgBox || !chatActualKey || !chatsBD[chatActualKey]) return;
-            msgBox.innerHTML = "";
+        async function sincronizarMensajes() {
+            if(!chatActivo || !supabaseClient) return;
 
-            const miNombre = usuarioActual ? usuarioActual.nombre : "Usuario";
-            const lista = chatsBD[chatActualKey].mensajes;
-            lista.forEach(m => {
-                const bubble = document.createElement('div');
-                bubble.className = 'msg-bubble ' + (m.emisor === miNombre ? 'sent' : 'received');
-                bubble.innerText = m.texto;
-                msgBox.appendChild(bubble);
+            try {
+                const { data } = await supabaseClient
+                    .from('messages')
+                    .select('*')
+                    .or(`and(sender_id.eq.${usuario.id},receiver_id.eq.${chatActivo}),and(sender_id.eq.${chatActivo},receiver_id.eq.${usuario.id})`)
+                    .order('created_at', { ascending: true });
+
+                if(data) {
+                    const contenedor = document.getElementById('chat-messages');
+                    contenedor.innerHTML = '';
+                    data.forEach(m => {
+                        let clase = m.sender_id === usuario.id ? 'sent' : (m.sender_id === 'amiti_ia' ? 'amiti' : 'received');
+                        renderBubble(m.content, clase);
+                    });
+                }
+            } catch(e) {
+                console.log(e);
+            }
+        }
+
+        function renderBubble(txt, classType) {
+            const box = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `message-bubble ${classType}`;
+            div.innerText = txt;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function cargarListaChats() {
+            const list = document.getElementById('chats-list');
+            list.innerHTML = `
+                <div class="chat-item" onclick="abrirChatCon('amiti_ia', '🤖 Amiti IA (Centro de Mando S1)')">
+                    <div>
+                        <strong style="color:var(--amiti-purple);">🤖 Amiti IA - Centro de Mando</strong>
+                        <div style="font-size:12px; color:var(--text-muted);">Servidor 1 Conectado</div>
+                    </div>
+                    <span class="badge-s1">S1</span>
+                </div>
+            `;
+        }
+
+        function generarQR() {
+            new QRious({
+                element: document.getElementById('qr-canvas'),
+                value: usuario ? usuario.handle : '@usuario',
+                size: 180,
+                background: '#0f111a',
+                foreground: '#10b981'
             });
-
-            msgBox.scrollTop = msgBox.scrollHeight;
         }
 
-        function cambiarSeccion(seccionId, elementoTab) {
-            document.querySelectorAll('.section-view').forEach(sec => sec.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-            
-            document.getElementById(seccionId).classList.add('active');
-            if (elementoTab) elementoTab.classList.add('active');
+        function abrirModal(id) { document.getElementById(id).classList.add('active'); }
+        function cerrarModal(id) { 
+            document.getElementById(id).classList.remove('active');
+            try { Html5Qrcode.stop(); } catch(e){}
         }
 
-        function filtrarLista(texto, containerId) {
-            const filtro = texto.toLowerCase();
-            const items = document.getElementById(containerId).getElementsByClassName('chat-item');
-            for (let item of items) {
-                const nombre = item.querySelector('.chat-name')?.innerText.toLowerCase() || "";
-                item.style.display = nombre.includes(filtro) ? "flex" : "none";
-            }
+        function iniciarEscaner() {
+            const html5QrCode = new Html5Qrcode("qr-reader");
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: 220 },
+                (decodedText) => {
+                    html5QrCode.stop();
+                    cerrarModal('modal-qr');
+                    abrirChatCon(decodedText.replace('@','').toLowerCase(), decodedText);
+                }
+            ).catch(err => alert("Cámara no disponible: " + err));
         }
     </script>
 </body>
 </html>
-    """
-    return render_template_string(html_publico)
+"""
+
+# ==========================================
+# RUTA PRINCIPAL Y ARRANQUE
+# ==========================================
+
+@app.route('/')
+def index():
+    return render_template_string(
+        HTML_TEMPLATE,
+        servidor_1_url=SERVIDOR_1_URL,
+        supabase_url=SUPABASE_URL,
+        supabase_key=SUPABASE_KEY
+    )
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    print(f"🚀 Iniciando Servidor 2 con Videos en puerto {PORT}...")
+    app.run(host='0.0.0.0', port=PORT, debug=False)
