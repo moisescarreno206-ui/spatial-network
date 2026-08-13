@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Spatial Network - Chat Modular</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #090810;
+            --bg-card: #131122;
+            --accent-color: #8b5cf6;
+            --text-main: #f3f4f6;
+            --text-muted: #8c8aa0;
+            --border-color: #24203d;
+            --chat-bg: #090810;
+            --bubble-radius: 16px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-primary); color: var(--text-main); height: 100vh; width: 100vw; display: flex; flex-direction: column; overflow: hidden; }
+
+        .view { display: none; flex: 1; flex-direction: column; height: calc(100vh - 65px); overflow-y: auto; position: relative; }
+        .view.active { display: flex; }
+
+        .header-spatial { height: 60px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-weight: bold; font-size: 18px; color: var(--accent-color); }
+        .header-icons { display: flex; gap: 16px; align-items: center; font-size: 20px; cursor: pointer; color: var(--text-main); }
+
+        /* LISTA DE CHATS ESTILO MESSENGER/WHATSAPP */
+        .chat-item { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-bottom: 1px solid var(--border-color); cursor: pointer; }
+        .chat-item:hover { background: #1a1730; }
+        .avatar-frame { width: 50px; height: 50px; border-radius: 50%; border: 2px solid var(--accent-color); object-fit: cover; background: #1a1730; }
+
+        /* MENÚ DE 3 PUNTOS */
+        .dropdown-menu { display: none; position: absolute; top: 55px; right: 16px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; width: 220px; z-index: 120; box-shadow: 0 10px 25px rgba(0,0,0,0.6); }
+        .dropdown-menu.active { display: flex; flex-direction: column; }
+        .dropdown-item { padding: 12px 16px; font-size: 14px; cursor: pointer; border-bottom: 1px solid #1c1833; color: var(--text-main); }
+        .dropdown-item:hover { background: var(--accent-color); color: white; }
+
+        /* SALA DE CHAT */
+        .chat-room-header { height: 60px; background: var(--bg-card); border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
+        .chat-body { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--chat-bg); }
+        .chat-bubble { max-width: 80%; padding: 12px 16px; border-radius: var(--bubble-radius); font-size: 14px; line-height: 1.4; word-break: break-word; }
+        .chat-bubble.sent { align-self: flex-end; background: var(--accent-color); color: white; }
+        .chat-bubble.received { align-self: flex-start; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); }
+
+        /* INPUTS Y BOTONES */
+        .input-field { background: #18152e; border: 1px solid var(--border-color); padding: 12px 16px; border-radius: 12px; color: white; outline: none; font-size: 14px; width: 100%; }
+        .btn-purple { background: var(--accent-color); color: white; border: none; padding: 14px; border-radius: 14px; font-weight: bold; cursor: pointer; text-align: center; width: 100%; margin-top: 8px; }
+
+        /* NAVEGACIÓN INFERIOR */
+        .nav-bar { display: flex; background: var(--bg-card); border-top: 1px solid var(--border-color); height: 65px; position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text-muted); font-size: 11px; cursor: pointer; }
+        .nav-item.active { color: var(--accent-color); font-weight: bold; }
+
+        /* MODALES */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 150; justify-content: center; align-items: center; padding: 20px; }
+        .modal.active { display: flex; }
+        .modal-content { background: var(--bg-card); border-radius: 20px; padding: 20px; border: 1px solid var(--border-color); width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
+
+        /* VISTAS DE ESTADOS/HISTORIAS CON ESTILO DE CÍRCULOS */
+        .status-ring { width: 58px; height: 58px; border-radius: 50%; border: 3px solid var(--accent-color); padding: 2px; }
+        .status-container { display: flex; gap: 12px; overflow-x: auto; padding: 12px 0; }
+    </style>
+</head>
+<body>
+
+    <!-- PUNTO 9: REGISTRO / INICIO DE SESIÓN -->
+    <div id="view-auth" class="view active" style="height:100vh;">
+        <div style="flex:1; display:flex; justify-content:center; align-items:center; padding:20px;">
+            <div style="width:100%; max-width:360px; background:var(--bg-card); border:1px solid var(--border-color); padding:28px; border-radius:24px;">
+                <h2 style="text-align:center; color:var(--accent-color); margin-bottom:16px;">Spatial Network</h2>
+                <div style="display:flex; border-bottom:1px solid var(--border-color); margin-bottom:16px;">
+                    <div id="tab-log" style="flex:1; text-align:center; padding:10px; cursor:pointer; font-weight:bold;" onclick="toggleAuth('login')">Ingresar</div>
+                    <div id="tab-reg" style="flex:1; text-align:center; padding:10px; cursor:pointer; font-weight:bold; color:var(--accent-color); border-bottom:2px solid var(--accent-color);" onclick="toggleAuth('register')">Registrarse</div>
+                </div>
+                
+                <div id="form-auth">
+                    <input type="text" id="auth-user" class="input-field" placeholder="Nombre de usuario (@usuario)" style="margin-bottom:10px;">
+                    <input type="text" id="auth-id" class="input-field" placeholder="Correo o teléfono" style="margin-bottom:10px;">
+                    <input type="password" id="auth-pass" class="input-field" placeholder="Contraseña" style="margin-bottom:10px;">
+                    <button class="btn-purple" onclick="ejecutarAuth()">Continuar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PUNTO 1: CHATS INDEPENDIENTES -->
+    <div id="view-chats" class="view">
+        <div class="header-spatial">
+            <span>Chats</span>
+            <div class="header-icons">
+                <span onclick="abrirSoporteAmiti()">🤖</span>
+                <span onclick="abrirModal('modal-add')">➕</span>
+            </div>
+        </div>
+        <div id="chats-list"></div>
+    </div>
+
+    <!-- SALA DE CHAT CON PUNTOS 2 Y 3 -->
+    <div id="view-room" class="view">
+        <div class="chat-room-header">
+            <div style="display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="verInfoContacto()">
+                <span onclick="event.stopPropagation(); volverAHome();" style="font-size:22px;">←</span>
+                <img id="room-avatar" src="" style="width:38px; height:38px; border-radius:50%;">
+                <div>
+                    <strong id="room-title" style="display:block; font-size:15px;">Contacto</strong>
+                    <span style="font-size:11px; color:var(--text-muted);">Toca para información</span>
+                </div>
+            </div>
+            <!-- PUNTO 2: MENÚ TRES PUNTOS -->
+            <div style="font-size:22px; cursor:pointer;" onclick="toggleThreeDots()">⋮</div>
+        </div>
+
+        <!-- PUNTO 3: MENÚ OPERACIONES -->
+        <div id="dropdown-ops" class="dropdown-menu">
+            <div class="dropdown-item" onclick="ejecutarOpcion('vaciar')">🧹 Vaciar chat</div>
+            <div class="dropdown-item" onclick="ejecutarOpcion('bloquear')">🚫 Bloquear contacto</div>
+            <div class="dropdown-item" onclick="ejecutarOpcion('reportar')">⚠️ Reportar contacto</div>
+            <div class="dropdown-item" onclick="ejecutarOpcion('crear_grupo')">👥 Crear grupo con contacto</div>
+            <div class="dropdown-item" onclick="ejecutarOpcion('silenciar')">🔕 Silenciar contacto</div>
+        </div>
+
+        <div id="chat-body" class="chat-body"></div>
+
+        <!-- PUNTO 2: ENVIAR ARCHIVOS Y NOTAS DE VOZ -->
+        <div style="padding:10px; background:var(--bg-card); display:flex; gap:8px; align-items:center;">
+            <span style="font-size:20px; cursor:pointer;" onclick="enviarMedia('📷 Imagen')">📷</span>
+            <span style="font-size:20px; cursor:pointer;" onclick="enviarMedia('🎥 Video')">🎥</span>
+            <span style="font-size:20px; cursor:pointer;" onclick="enviarNotaVoz()">🎙️</span>
+            <input type="text" id="chat-input" class="input-field" placeholder="Escribe un mensaje..." onkeypress="if(event.key==='Enter') enviarMensajeTexto()">
+            <button class="btn-purple" style="width:auto; padding:10px 16px; margin:0;" onclick="enviarMensajeTexto()">➤</button>
+        </div>
+    </div>
+
+    <!-- PUNTO 4: HISTORIA Y ESTADOS -->
+    <div id="view-status" class="view">
+        <div class="header-spatial">
+            <span>Historias y Estados</span>
+            <span style="cursor:pointer;" onclick="abrirModal('modal-status')">➕ Publicar</span>
+        </div>
+        <div style="padding:16px;">
+            <h4 style="color:var(--text-muted); font-size:12px; margin-bottom:8px;">PUBLICACIONES RECIENTES</h4>
+            <div id="status-container"></div>
+        </div>
+    </div>
+
+    <!-- PUNTO 6 Y 7: CONFIGURACIÓN COMPLETA -->
+    <div id="view-settings" class="view">
+        <div class="header-spatial"><span>Configuración de Cuenta</span></div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:16px;">
+            <div style="display:flex; align-items:center; gap:14px; background:var(--bg-card); padding:14px; border-radius:16px;">
+                <img id="my-avatar" src="" style="width:60px; height:60px; border-radius:50%;">
+                <div>
+                    <strong id="my-name" style="font-size:16px;">@usuario</strong>
+                    <p id="my-status" style="font-size:12px; color:var(--text-muted);">Estado del usuario</p>
+                </div>
+            </div>
+
+            <!-- OPCOINES DEL PUNTO 7 -->
+            <button class="btn-purple" onclick="cambiarColorApp()">🎨 Cambiar color de la presentación</button>
+            <button class="btn-purple" onclick="abrirModal('modal-chat-style')">💬 Ajustar estilo de chats y fondo</button>
+            <button class="btn-purple" onclick="abrirModal('modal-blocked')">🚫 Ver contactos bloqueados</button>
+            <button class="btn-purple" onclick="abrirModal('modal-virals')">🔥 Buscar vídeos virales por creador</button>
+            <button class="btn-purple" onclick="abrirSoporteAmiti()">🤖 Contacto al soporte técnico (Amiti)</button>
+            <button class="btn-purple" style="background:#3b1111;" onclick="cerrarSesion()">Cerrar sesión</button>
+        </div>
+    </div>
+
+    <!-- BARRA NAVEGACIÓN -->
+    <div class="nav-bar">
+        <div class="nav-item active" id="nav-chats" onclick="navegar('chats')"><span style="font-size:18px;">💬</span><span>Chats</span></div>
+        <div class="nav-item" id="nav-status" onclick="navegar('status')"><span style="font-size:18px;">⭕</span><span>Estados</span></div>
+        <div class="nav-item" id="nav-settings" onclick="navegar('settings')"><span style="font-size:18px;">⚙️</span><span>Ajustes</span></div>
+    </div>
+
+    <!-- MODALES VARIOS -->
+    <div id="modal-add" class="modal">
+        <div class="modal-content">
+            <h3>Punto 5: Agregar Contacto</h3>
+            <input type="text" id="sync-input" class="input-field" placeholder="Número, correo o @usuario">
+            <button class="btn-purple" onclick="sincronizarContacto()">Sincronizar / Agregar</button>
+
+            <div style="text-align:center; margin-top:10px;">
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">Mi código QR:</p>
+                <canvas id="qr-code"></canvas>
+            </div>
+            <button class="btn-purple" style="background:#28233d;" onclick="cerrarModal('modal-add')">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="modal-status" class="modal">
+        <div class="modal-content">
+            <h3>Publicar Historia / Estado</h3>
+            <input type="text" id="status-content" class="input-field" placeholder="Escribe o pega URL de foto/video">
+            <select id="status-type" class="input-field" style="margin-top:6px;">
+                <option value="text">Historia (Solo Texto)</option>
+                <option value="image">Estado (Imagen URL)</option>
+                <option value="video">Estado (Video URL)</option>
+            </select>
+            <input type="number" id="status-expiry" class="input-field" placeholder="Expiración en horas (Ej: 24)" value="24" style="margin-top:6px;">
+            <button class="btn-purple" onclick="publicarEstado()">Publicar</button>
+            <button class="btn-purple" style="background:#28233d;" onclick="cerrarModal('modal-status')">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="modal-virals" class="modal">
+        <div class="modal-content">
+            <h3>Vídeos e Imágenes Virales</h3>
+            <input type="text" id="viral-creator" class="input-field" placeholder="Nombre del creador (ej: amiti_official)">
+            <button class="btn-purple" onclick="buscarVirales()">Buscar Contenido</button>
+            <div id="virals-results" style="max-height:200px; overflow-y:auto; margin-top:10px;"></div>
+            <button class="btn-purple" style="background:#28233d;" onclick="cerrarModal('modal-virals')">Cerrar</button>
+        </div>
+    </div>
+
+    <script>
+        let usuario = JSON.parse(localStorage.getItem('spatial_user')) || null;
+        let activeTarget = null;
+        let isAuthLogin = false;
+
+        // PUNTO 8: NOTIFICACIONES DEL NAVEGADOR
+        if ("Notification" in window && Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+
+        // PUNTO 10: MANEJO DE NAVEGACIÓN Y CIERRE ACCIDENTAL
+        window.addEventListener('popstate', (event) => {
+            if (document.querySelector('.modal.active')) {
+                document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
+                history.pushState(null, null, location.href);
+            } else if (document.getElementById('view-room').classList.contains('active')) {
+                volverAHome();
+                history.pushState(null, null, location.href);
+            }
+        });
+
+        window.onload = () => {
+            history.pushState(null, null, location.href);
+            if (usuario) {
+                document.getElementById('view-auth').classList.remove('active');
+                inicializarApp();
+            }
+        };
+
+        function toggleAuth(type) {
+            isAuthLogin = (type === 'login');
+            document.getElementById('tab-log').style.color = isAuthLogin ? 'var(--accent-color)' : 'white';
+            document.getElementById('tab-reg').style.color = !isAuthLogin ? 'var(--accent-color)' : 'white';
+        }
+
+        async function ejecutarAuth() {
+            const username = document.getElementById('auth-user').value.trim();
+            const identity = document.getElementById('auth-id').value.trim();
+            const password = document.getElementById('auth-pass').value.trim();
+
+            const endpoint = isAuthLogin ? '/api/auth/login' : '/api/auth/register';
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ username, identity, password })
+            });
+
+            const data = await res.json();
+            if (data.status === 'success') {
+                usuario = data.user;
+                localStorage.setItem('spatial_user', JSON.stringify(usuario));
+                document.getElementById('view-auth').classList.remove('active');
+                inicializarApp();
+            } else {
+                alert(data.message);
+            }
+        }
+
+        function inicializarApp() {
+            document.getElementById('my-name').innerText = usuario.username;
+            document.getElementById('my-avatar').src = usuario.avatar_url;
+            document.getElementById('my-status').innerText = usuario.status_text;
+
+            new QRious({
+                element: document.getElementById('qr-code'),
+                value: usuario.username,
+                size: 140
+            });
+
+            renderizarChatsMock();
+            cargarEstados();
+            navegar('chats');
+        }
+
+        function renderizarChatsMock() {
+            const list = document.getElementById('chats-list');
+            list.innerHTML = `
+                <div class="chat-item" onclick="abrirChat('Amiti Soporte Técnico', 'https://api.dicebear.com/7.x/bottts/svg?seed=amiti')">
+                    <img src="https://api.dicebear.com/7.x/bottts/svg?seed=amiti" class="avatar-frame">
+                    <div>
+                        <strong>Amiti Soporte Técnico</strong>
+                        <p style="font-size:12px; color:var(--text-muted);">Canal directo de soporte oficial</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function abrirChat(nombre, avatar) {
+            activeTarget = nombre;
+            document.getElementById('room-title').innerText = nombre;
+            document.getElementById('room-avatar').src = avatar;
+            document.getElementById('chat-body').innerHTML = '';
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-room').classList.add('active');
+        }
+
+        function toggleThreeDots() {
+            document.getElementById('dropdown-ops').classList.toggle('active');
+        }
+
+        async function ejecutarOpcion(accion) {
+            document.getElementById('dropdown-ops').classList.remove('active');
+            const res = await fetch('/api/chats/ops', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: accion, user_id: usuario.id, target_id: activeTarget })
+            });
+            const data = await res.json();
+            alert(data.message || "Operación realizada con éxito");
+            if (accion === 'vaciar') document.getElementById('chat-body').innerHTML = '';
+        }
+
+        function enviarMensajeTexto() {
+            const txt = document.getElementById('chat-input').value.trim();
+            if (!txt) return;
+            insertarBurbuja(txt, 'sent');
+            document.getElementById('chat-input').value = '';
+
+            // Notificación simulada
+            setTimeout(() => {
+                insertarBurbuja("Mensaje recibido por la red espacial.", 'received');
+                lanzarNotificacion(activeTarget, "💬 Mensaje: Respuesta automática");
+            }, 800);
+        }
+
+        function enviarNotaVoz() {
+            insertarBurbuja("🎙️ Nota de voz (0:12)", 'sent');
+        }
+
+        function enviarMedia(tipo) {
+            insertarBurbuja(`${tipo} enviada correctamente`, 'sent');
+        }
+
+        function enviarNotaVoz() {
+            insertarBurbuja("🎙️ Nota de voz (0:12)", 'sent');
+        }
+
+        function enviarMedia(tipo) {
+            insertarBurbuja(`${tipo} enviada correctamente`, 'sent');
+        }
+
+        function insertarBurbuja(texto, tipo) {
+            const b = document.createElement('div');
+            b.className = `chat-bubble ${tipo}`;
+            b.innerText = texto;
+            const body = document.getElementById('chat-body');
+            body.appendChild(b);
+            body.scrollTop = body.scrollHeight;
+        }
+
+        function lanzarNotificacion(autor, texto) {
+            if (Notification.permission === "granted") {
+                new Notification(`Spatial - ${autor}`, { body: texto, icon: usuario.avatar_url });
+            }
+        }
+
+        async function publicarEstado() {
+            const content = document.getElementById('status-content').value.trim();
+            const type = document.getElementById('status-type').value;
+            const hours = document.getElementById('status-expiry').value;
+
+            await fetch('/api/statuses/publish', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: usuario.id, username: usuario.username, type, content, expiry_hours: hours })
+            });
+
+            cerrarModal('modal-status');
+            cargarEstados();
+        }
+
+        async function cargarEstados() {
+            const res = await fetch('/api/statuses/list');
+            const data = await res.json();
+            const container = document.getElementById('status-container');
+            container.innerHTML = '';
+            
+            (data.items || []).forEach(item => {
+                const d = document.createElement('div');
+                d.style.cssText = "background:var(--bg-card); padding:12px; border-radius:12px; margin-bottom:8px; border:1px solid var(--border-color);";
+                d.innerHTML = `<strong>${item.username}</strong> <span style="font-size:10px; color:var(--accent-color);">[${item.category}]</span><p style="margin-top:4px;">${item.content}</p>`;
+                container.appendChild(d);
+            });
+        }
+
+        async function sincronizarContacto() {
+            const q = document.getElementById('sync-input').value.trim();
+            if (!q) return;
+            const res = await fetch('/api/contacts/sync', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: usuario.id, query: q })
+            });
+            const data = await res.json();
+            alert(`Contacto ${data.contact.username} sincronizado.`);
+            cerrarModal('modal-add');
+        }
+
+        async function buscarVirales() {
+            const creator = document.getElementById('viral-creator').value.trim();
+            const res = await fetch(`/api/settings/virals?creator=${creator}`);
+            const data = await res.json();
+            const box = document.getElementById('virals-results');
+            box.innerHTML = '';
+            (data.items || []).forEach(v => {
+                box.innerHTML += `<div style="padding:6px; border-bottom:1px solid var(--border-color);"><strong>${v.title}</strong> (${v.creator})</div>`;
+            });
+        }
+
+        function abrirSoporteAmiti() {
+            abrirChat("Amiti Soporte Técnico", "https://api.dicebear.com/7.x/bottts/svg?seed=amiti");
+        }
+
+        function cambiarColorApp() {
+            const colores = ['#8b5cf6', '#ec4899', '#10b981', '#3b82f6', '#f59e0b'];
+            const randomColor = colores[Math.floor(Math.random() * colores.length)];
+            document.documentElement.style.setProperty('--accent-color', randomColor);
+        }
+
+        function navegar(tab) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(`view-${tab}`).classList.add('active');
+            document.getElementById(`nav-${tab}`).classList.add('active');
+        }
+
+        function volverAHome() { navegar('chats'); }
+        function abrirModal(id) { document.getElementById(id).classList.add('active'); }
+        function cerrarModal(id) { document.getElementById(id).classList.remove('active'); }
+        function cerrarSesion() { localStorage.removeItem('spatial_user'); location.reload(); }
+        function verInfoContacto() { alert(`Información de ${activeTarget}`); }
+    </script>
+</body>
+</html>
