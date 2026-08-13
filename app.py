@@ -1,13 +1,14 @@
 import os
+import re
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, render_template_string, jsonify, request
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get("SECRET_KEY", "spatial-network-key-2026")
 
 # ==========================================
-# CONFIGURACIÓN Y SUPABASE
+# CONFIGURACIÓN Y CONEXIÓN SUPABASE / DB
 # ==========================================
 PORT = int(os.environ.get("PORT", 5000))
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xyzcompany.supabase.co")
@@ -18,97 +19,177 @@ if "supabase.co" in SUPABASE_URL and SUPABASE_KEY != "public-anon-key":
     try:
         from supabase import create_client
         supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print("✅ [Spatial Network] Supabase conectado.")
+        print("✅ [Spatial Network] Conectado a Supabase.")
     except Exception as e:
         print(f"⚠️ Fallo al conectar Supabase: {e}")
 
+# Memoria de respaldo local cuando no hay DB conectada
+LOCAL_DB = {
+    "users": {},
+    "contacts": {},
+    "statuses": [],
+    "messages": []
+}
+
+def get_client_ip():
+    """Obtiene la dirección IP real del dispositivo que envía la solicitud"""
+    if request.headers.get('X-Forwarded-For'):
+        return request.headers.get('X-Forwarded-For').split(',')[0].strip()
+    return request.remote_addr or "127.0.0.1"
+
+def validate_email_or_phone(identity):
+    """Verifica si la identidad ingresada es un correo válido o número telefónico"""
+    email_regex = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    phone_regex = r'^\+?[0-9]{7,15}$'
+    
+    clean_identity = identity.replace(" ", "").replace("-", "")
+    if re.match(email_regex, identity):
+        return True, "email"
+    elif re.match(phone_regex, clean_identity):
+        return True, "phone"
+    return False, "invalid"
+
 # ==========================================
-# ENDPOINTS BACKEND
+# ENDPOINTS ENDPOINTS BACKEND REALES
 # ==========================================
 
 @app.route('/api/auth/register', methods=['POST'])
 def register_user():
     data = request.get_json() or {}
+    username = data.get('username', '').strip()
     identity = data.get('identity', '').strip()
     password = data.get('password', '').strip()
-    name = data.get('name', '').strip() or "Moises"
-    handle = data.get('handle', '').strip() or "@Jack"
+    client_ip = get_client_ip()
 
-    user_id = handle.replace('@', '').lower()
-    profile_data = {
+    if not username or not identity or not password:
+        return jsonify({"status": "error", "message": "Todos los campos son obligatorios"}), 400
+
+    is_valid, id_type = validate_email_or_phone(identity)
+    if not is_valid:
+        return jsonify({"status": "error", "message": "Ingresa un correo electrónico o teléfono válido."}), 400
+
+    user_handle = username if username.startswith('@') else f"@{username}"
+    user_id = user_handle.replace('@', '').lower()
+
+    user_profile = {
         "id": user_id,
+        "username": user_handle,
         "identity": identity,
-        "name": name,
-        "handle": handle if handle.startswith('@') else f"@{handle}",
+        "identity_type": id_type,
         "avatar_url": f"https://api.dicebear.com/7.x/bottts/svg?seed={user_id}",
-        "status_text": "¡Hola! Estoy usando Spatial Network"
+        "status_text": "¡Hola! Estoy usando Spatial Network",
+        "last_ip": client_ip,
+        "created_at": datetime.utcnow().isoformat()
     }
 
     if supabase_client:
         try:
-            supabase_client.table('profiles').upsert(profile_data).execute()
+            supabase_client.table('profiles').upsert(user_profile).execute()
         except Exception as e:
-            print(f"Error Supabase: {e}")
+            print(f"Error Supabase en registro: {e}")
 
-    return jsonify({"status": "success", "user": profile_data}), 200
+    LOCAL_DB["users"][user_id] = user_profile
+    return jsonify({"status": "success", "user": user_profile, "client_ip": client_ip}), 200
 
 @app.route('/api/auth/login', methods=['POST'])
 def login_user():
     data = request.get_json() or {}
     identity = data.get('identity', '').strip()
     password = data.get('password', '').strip()
+    client_ip = get_client_ip()
 
-    handle_id = identity.split('@')[0].lower() if identity else "jack"
-    user_data = {
-        "id": handle_id,
+    is_valid, _ = validate_email_or_phone(identity)
+    if not is_valid and identity != "admin":
+        return jsonify({"status": "error", "message": "Ingresa un correo o teléfono válido."}), 400
+
+    user_id = identity.split('@')[0].lower().replace('+', '')
+    user_profile = {
+        "id": user_id,
+        "username": f"@{user_id}",
         "identity": identity,
-        "name": "Moises",
-        "handle": f"@{handle_id}" if handle_id else "@Jack",
-        "avatar_url": f"https://api.dicebear.com/7.x/bottts/svg?seed={handle_id}",
-        "status_text": "¡Hola! Estoy usando Spatial Network"
+        "avatar_url": f"https://api.dicebear.com/7.x/bottts/svg?seed={user_id}",
+        "status_text": "¡Hola! Estoy usando Spatial Network",
+        "last_ip": client_ip
     }
 
     if supabase_client:
         try:
             res = supabase_client.table('profiles').select('*').eq('identity', identity).execute()
             if res.data:
-                user_data = res.data[0]
+                user_profile = res.data[0]
+                user_profile['last_ip'] = client_ip
+                supabase_client.table('profiles').update({'last_ip': client_ip}).eq('id', user_profile['id']).execute()
         except Exception as e:
-            print(f"Error login: {e}")
+            print(f"Error login Supabase: {e}")
 
-    return jsonify({"status": "success", "user": user_data}), 200
+    LOCAL_DB["users"][user_id] = user_profile
+    return jsonify({"status": "success", "user": user_profile, "client_ip": client_ip}), 200
 
-@app.route('/api/profile/update', methods=['POST'])
-def update_profile():
+@app.route('/api/contacts/sync', methods=['POST'])
+def sync_contacts():
     data = request.get_json() or {}
-    user_id = data.get('id')
-    name = data.get('name', '').strip()
-    avatar_url = data.get('avatar_url', '').strip()
-    status_text = data.get('status_text', '').strip()
+    user_id = data.get('user_id')
+    contact_handle = data.get('contact_handle', '').strip()
 
-    updated = {
-        "id": user_id,
-        "name": name or "Moises",
-        "avatar_url": avatar_url or f"https://api.dicebear.com/7.x/bottts/svg?seed={user_id}",
-        "status_text": status_text or "¡Hola! Estoy usando Spatial Network"
+    if not contact_handle:
+        return jsonify({"status": "error", "message": "Ingresa un usuario o número válido."}), 400
+
+    contact_id = contact_handle.replace('@', '').lower()
+    contact_data = {
+        "id": contact_id,
+        "handle": contact_handle if contact_handle.startswith('@') else f"@{contact_handle}",
+        "name": contact_handle.replace('@', '').capitalize(),
+        "avatar_url": f"https://api.dicebear.com/7.x/bottts/svg?seed={contact_id}"
     }
 
-    if supabase_client:
-        try:
-            supabase_client.table('profiles').update(updated).eq('id', user_id).execute()
-        except Exception as e:
-            print(f"Error actualizando perfil: {e}")
+    if user_id not in LOCAL_DB["contacts"]:
+        LOCAL_DB["contacts"][user_id] = []
+    
+    LOCAL_DB["contacts"][user_id].append(contact_data)
+    return jsonify({"status": "success", "contact": contact_data}), 200
 
-    return jsonify({"status": "success", "user": updated}), 200
+@app.route('/api/statuses', methods=['GET', 'POST'])
+def handle_statuses():
+    client_ip = get_client_ip()
+    
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        user_id = data.get('user_id')
+        username = data.get('username', '@Usuario')
+        content_type = data.get('type', 'text') # text, image, video
+        content_url = data.get('url', '')
+        text_body = data.get('text', '')
 
-@app.route('/api/social/videos/feed', methods=['GET'])
-def get_video_feed():
-    videos = [
-        {"id": 1, "video_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", "author": "@spatial_official", "desc": "Bienvenido a Spatial Network"},
-        {"id": 2, "video_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", "author": "@amiti_core", "desc": "Sincronización en vivo"},
-        {"id": 3, "video_url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", "author": "@soporte_tecnico", "desc": "Canal de soporte de videos"}
-    ]
-    return jsonify({"status": "success", "videos": videos}), 200
+        status_item = {
+            "id": len(LOCAL_DB["statuses"]) + 1,
+            "user_id": user_id,
+            "username": username,
+            "type": content_type,
+            "url": content_url,
+            "text": text_body,
+            "client_ip": client_ip,
+            "created_at": datetime.utcnow().isoformat()
+        }
+
+        if supabase_client:
+            try:
+                supabase_client.table('statuses').insert(status_item).execute()
+            except Exception as e:
+                print(f"Error insertando estado: {e}")
+
+        LOCAL_DB["statuses"].append(status_item)
+        return jsonify({"status": "success", "data": status_item}), 200
+
+    # GET: Filtrar estados con máximo 24 horas de vigencia
+    now = datetime.utcnow()
+    valid_statuses = []
+    
+    for s in LOCAL_DB["statuses"]:
+        created = datetime.fromisoformat(s["created_at"])
+        if now - created <= timedelta(hours=24):
+            valid_statuses.append(s)
+
+    return jsonify({"status": "success", "statuses": valid_statuses}), 200
 
 # ==========================================
 # FRONTEND INTERFAZ SPATIAL NETWORK
@@ -121,21 +202,20 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Spatial Network</title>
-    <meta name="theme-color" content="#0a0a12">
+    <meta name="theme-color" content="#0d0b18">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
 
     <style>
         :root {
-            --bg-dark: #08070d;
-            --bg-card: #12101f;
-            --bg-card-hover: #1b182e;
-            --bg-input: #171528;
-            --accent-purple: #a855f7;
-            --accent-purple-glow: rgba(168, 85, 247, 0.4);
+            --bg-dark: #090810;
+            --bg-card: #131122;
+            --bg-card-hover: #1c1933;
+            --bg-input: #19162e;
+            --accent-purple: #8b5cf6;
+            --accent-purple-glow: rgba(139, 92, 246, 0.4);
             --text-main: #f3f4f6;
-            --text-muted: #8b8a9d;
-            --border: #231f38;
+            --text-muted: #8c8aa0;
+            --border: #24203d;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -147,141 +227,164 @@ HTML_TEMPLATE = """
         .header-spatial { height: 60px; background: var(--bg-card); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-weight: bold; font-size: 20px; color: var(--accent-purple); }
         .header-icons { display: flex; gap: 16px; align-items: center; font-size: 18px; color: var(--text-main); cursor: pointer; }
 
-        .auth-container { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; background: radial-gradient(circle at center, #1b0e2b 0%, var(--bg-dark) 100%); }
-        .auth-box { width: 100%; max-width: 380px; background: var(--bg-card); border: 1px solid var(--border); padding: 28px; border-radius: 24px; display: flex; flex-direction: column; gap: 14px; }
-        .auth-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
-        .auth-tab-btn { flex: 1; padding: 10px; text-align: center; color: var(--text-muted); cursor: pointer; font-weight: bold; font-size: 14px; }
-        .auth-tab-btn.active { color: var(--accent-purple); border-bottom: 2px solid var(--accent-purple); }
+        /* AUTH - IDÉNTICO A IMAGEN 1000039296.png */
+        .auth-container { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; background: radial-gradient(circle at center, #180d2d 0%, var(--bg-dark) 100%); }
+        .auth-box { width: 100%; max-width: 380px; background: #121021; border: 1px solid var(--border); padding: 32px 24px; border-radius: 28px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .auth-title { font-size: 26px; font-weight: 800; color: #a78bfa; text-align: center; letter-spacing: 0.5px; }
+        .auth-subtitle { font-size: 13px; color: var(--text-muted); text-align: center; margin-top: 6px; margin-bottom: 24px; }
+        
+        .auth-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        .auth-tab-btn { flex: 1; padding: 10px; text-align: center; color: var(--text-muted); cursor: pointer; font-weight: 600; font-size: 15px; }
+        .auth-tab-btn.active { color: #a78bfa; border-bottom: 2px solid #a78bfa; }
 
-        .input-field { background: var(--bg-input); border: 1px solid var(--border); padding: 14px; border-radius: 14px; color: white; outline: none; font-size: 14px; width: 100%; }
-        .input-field:focus { border-color: var(--accent-purple); box-shadow: 0 0 10px var(--accent-purple-glow); }
-        .btn-purple { background: var(--accent-purple); color: white; border: none; padding: 14px; border-radius: 14px; font-weight: bold; font-size: 15px; cursor: pointer; text-align: center; }
+        .field-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+        .field-label { font-size: 13px; color: var(--text-main); }
+        .input-field { background: var(--bg-input); border: 1px solid var(--border); padding: 14px 16px; border-radius: 14px; color: white; outline: none; font-size: 14px; width: 100%; }
+        .input-field:focus { border-color: var(--accent-purple); box-shadow: 0 0 12px var(--accent-purple-glow); }
+        .btn-purple { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; padding: 15px; border-radius: 16px; font-weight: bold; font-size: 15px; cursor: pointer; text-align: center; margin-top: 10px; box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4); }
 
+        /* BARRA NAVEGACIÓN INFERIOR */
         .nav-bar { display: flex; background: var(--bg-card); border-top: 1px solid var(--border); height: 65px; position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; }
         .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text-muted); font-size: 11px; cursor: pointer; }
         .nav-item.active { color: var(--accent-purple); font-weight: bold; }
 
+        /* PERFIL & MENÚ */
         .profile-section { display: flex; flex-direction: column; align-items: center; padding: 24px 16px; text-align: center; }
-        .status-bubble { background: var(--bg-card); border: 1px solid var(--border); padding: 10px 18px; border-radius: 20px; font-size: 14px; color: var(--text-main); margin-bottom: 16px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
-        .status-bubble:hover { border-color: var(--accent-purple); }
-        .profile-avatar-container { position: relative; margin-bottom: 12px; cursor: pointer; }
-        .profile-avatar { width: 110px; height: 110px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent-purple); box-shadow: 0 0 25px var(--accent-purple-glow); background: #1b182e; }
+        .status-bubble { background: var(--bg-card); border: 1px solid var(--border); padding: 10px 18px; border-radius: 20px; font-size: 14px; color: var(--text-main); margin-bottom: 16px; cursor: pointer; }
+        .profile-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent-purple); box-shadow: 0 0 20px var(--accent-purple-glow); background: #1a1730; margin-bottom: 12px; }
 
         .menu-cards-list { display: flex; flex-direction: column; gap: 12px; padding: 0 16px 24px 16px; }
         .menu-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px; padding: 16px; display: flex; align-items: center; gap: 16px; cursor: pointer; }
-        .menu-card:active { background: var(--bg-card-hover); border-color: var(--accent-purple); }
 
-        .tiktok-feed { flex: 1; overflow-y: scroll; scroll-snap-type: y mandatory; background: #000; height: 100%; }
-        .tiktok-card { height: 100%; width: 100%; scroll-snap-align: start; scroll-snap-stop: always; position: relative; display: flex; justify-content: center; align-items: center; background: #000; }
-        .tiktok-card video { width: 100%; height: 100%; object-fit: cover; }
+        /* GLOBO FLOTANTE (FAB) DE OBTENCIÓN DE CHAT / SOPORTE / CONTACTOS */
+        .fab-main { position: fixed; bottom: 80px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #8b5cf6, #6d28d9); display: flex; justify-content: center; align-items: center; color: white; font-size: 24px; box-shadow: 0 8px 25px rgba(139, 92, 246, 0.5); cursor: pointer; z-index: 90; }
 
-        .fab-support { position: absolute; bottom: 80px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #a855f7, #7c3aed); display: flex; justify-content: center; align-items: center; color: white; font-size: 24px; box-shadow: 0 6px 20px var(--accent-purple-glow); cursor: pointer; z-index: 10; }
+        /* ESTADOS / NOVEDADES */
+        .status-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
 
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
         .modal.active { display: flex; }
-        .modal-content { background: var(--bg-card); border-radius: 20px; padding: 20px; border: 1px solid var(--border); width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 14px; }
+        .modal-content { background: var(--bg-card); border-radius: 22px; padding: 22px; border: 1px solid var(--border); width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 14px; }
     </style>
 </head>
 <body>
 
-    <!-- AUTH -->
+    <!-- AUTHENTICATION VIEW -->
     <div id="view-auth" class="view active" style="height: 100vh;">
         <div class="auth-container">
             <div class="auth-box">
-                <h2 style="color:var(--accent-purple); text-align:center;">Spatial Network</h2>
+                <div class="auth-title">SPATIAL NETWORK</div>
+                <div class="auth-subtitle">Red Social y Transmisión Multimedia Global</div>
+
                 <div class="auth-tabs">
-                    <div id="tab-btn-login" class="auth-tab-btn active" onclick="switchAuthTab('login')">Iniciar Sesión</div>
-                    <div id="tab-btn-register" class="auth-tab-btn" onclick="switchAuthTab('register')">Registrarse</div>
+                    <div id="tab-btn-login" class="auth-tab-btn" onclick="switchAuthTab('login')">Ingresar</div>
+                    <div id="tab-btn-register" class="auth-tab-btn active" onclick="switchAuthTab('register')">Registrarse</div>
                 </div>
 
-                <div id="form-login" style="display:flex; flex-direction:column; gap:12px;">
-                    <input type="text" id="login-identity" class="input-field" placeholder="Correo o Teléfono">
-                    <input type="password" id="login-password" class="input-field" placeholder="Contraseña">
+                <!-- FORMULARIO DE INGRESO -->
+                <div id="form-login" style="display:none; flex-direction:column;">
+                    <div class="field-group">
+                        <span class="field-label">Correo electrónico o Teléfono</span>
+                        <input type="text" id="login-identity" class="input-field" placeholder="usuario@espacio.com o +58412...">
+                    </div>
+                    <div class="field-group">
+                        <span class="field-label">Contraseña</span>
+                        <input type="password" id="login-password" class="input-field" placeholder="••••••••">
+                    </div>
                     <button class="btn-purple" onclick="ejecutarLogin()">Entrar</button>
                 </div>
 
-                <div id="form-register" style="display:none; flex-direction:column; gap:12px;">
-                    <input type="text" id="reg-name" class="input-field" placeholder="Nombre (ej. Moises)">
-                    <input type="text" id="reg-handle" class="input-field" placeholder="@usuario (ej. @Jack)">
-                    <input type="text" id="reg-identity" class="input-field" placeholder="Correo o Teléfono">
-                    <input type="password" id="reg-password" class="input-field" placeholder="Contraseña">
+                <!-- FORMULARIO DE REGISTRO EXACTO A IMAGEN 1000039296.png -->
+                <div id="form-register" style="display:flex; flex-direction:column;">
+                    <div class="field-group">
+                        <span class="field-label">Nombre de usuario</span>
+                        <input type="text" id="reg-username" class="input-field" placeholder="@usuario">
+                    </div>
+                    <div class="field-group">
+                        <span class="field-label">Correo electrónico</span>
+                        <input type="text" id="reg-identity" class="input-field" placeholder="usuario@espacio.com">
+                    </div>
+                    <div class="field-group">
+                        <span class="field-label">Contraseña</span>
+                        <input type="password" id="reg-password" class="input-field" placeholder="••••••••">
+                    </div>
                     <button class="btn-purple" onclick="ejecutarRegistro()">Crear Cuenta</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- CHATS -->
+    <!-- VISTA CHATS (SIN CARD FIJO DE SOPORTE) -->
     <div id="view-chats" class="view">
         <div class="header-spatial">
             <span>Spatial Network</span>
             <div class="header-icons">
                 <span onclick="abrirModal('modal-qr')">📷</span>
-                <span onclick="abrirChatSoporte()">🤖</span>
+                <span onclick="abrirModal('modal-action-globo')">🤖</span>
                 <span onclick="abrirModal('modal-edit-profile')">✏️</span>
             </div>
         </div>
 
         <div style="padding:12px 16px;">
-            <div style="background:var(--bg-input); border:1px solid var(--border); border-radius:20px; padding:10px 16px; display:flex; align-items:center; gap:8px;">
+            <div style="background:var(--bg-input); border:1px solid var(--border); border-radius:20px; padding:12px 16px; display:flex; align-items:center; gap:8px;">
                 <span>🔍</span>
                 <input type="text" placeholder="Buscar chats..." style="background:transparent; border:none; outline:none; color:white; width:100%;">
             </div>
         </div>
 
-        <div style="padding: 10px 16px;">
-            <!-- Opción directa para Soporte Técnico -->
-            <div class="menu-card" onclick="abrirChatSoporte()">
-                <div style="font-size:30px;">🤖</div>
-                <div>
-                    <strong style="color:white; display:block;">Amiti Soporte Técnico</strong>
-                    <span style="color:var(--text-muted); font-size:12px;">Chat privado de ayuda y asistencia</span>
-                </div>
-            </div>
-        </div>
+        <div id="active-chats-list" style="padding:0 16px;"></div>
 
-        <div id="chats-container" style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:30px; color:var(--text-muted); font-size:14px;">
+        <div id="empty-chats-msg" style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:30px; color:var(--text-muted); font-size:14px;">
             No tienes más chats iniciados.<br>Agrega contactos o escribe al soporte técnico arriba.
         </div>
 
-        <!-- Globo flotante de soporte -->
-        <div class="fab-support" onclick="abrirChatSoporte()" title="Soporte Técnico">💬</div>
+        <!-- GLOBO DE ACCIONES (NUEVO CHAT / SOPORTE / CONTACTOS) -->
+        <div class="fab-main" onclick="abrirModal('modal-action-globo')" title="Opciones de chat">💬</div>
     </div>
 
-    <!-- NOVEDADES / TIKTOK FEED -->
+    <!-- VISTA NOVEDADES (ESTADOS DE 24 HORAS REALES) -->
     <div id="view-novedades" class="view">
         <div class="header-spatial">
-            <span>Novedades & Videos</span>
+            <span>Novedades / Estados</span>
+            <div class="header-icons">
+                <span onclick="abrirModal('modal-new-status')">➕</span>
+            </div>
         </div>
-        <div id="tiktok-feed" class="tiktok-feed"></div>
+
+        <div style="padding:16px;">
+            <div class="menu-card" onclick="abrirModal('modal-new-status')" style="margin-bottom:16px; border-color:var(--accent-purple);">
+                <div style="font-size:28px;">📷</div>
+                <div>
+                    <strong style="color:white; display:block;">Mi Estado</strong>
+                    <span style="color:var(--text-muted); font-size:12px;">Publica texto, foto o video (24h)</span>
+                </div>
+            </div>
+
+            <h4 style="color:var(--text-muted); margin-bottom:12px; font-size:13px; text-transform:uppercase;">Estados Recientes (24 horas)</h4>
+            <div id="statuses-container"></div>
+        </div>
     </div>
 
-    <!-- CONTACTOS -->
+    <!-- VISTA CONTACTOS -->
     <div id="view-contactos" class="view">
         <div class="header-spatial">
             <span>Contactos</span>
             <div class="header-icons">
-                <span onclick="abrirModal('modal-qr')">📷</span>
+                <span onclick="abrirModal('modal-add-contact')">➕</span>
             </div>
         </div>
         <div style="padding:16px;">
-            <div class="menu-card" onclick="abrirChatSoporte()">
-                <div style="font-size:30px;">🤖</div>
-                <div>
-                    <strong style="color:white; display:block;">Amiti Soporte Técnico</strong>
-                    <span style="color:var(--text-muted); font-size:12px;">Canal Oficial de Asistencia</span>
-                </div>
-            </div>
+            <button class="btn-purple" style="width:100%; margin-bottom:16px;" onclick="abrirModal('modal-add-contact')">Sincronizar / Agregar Nuevo Contacto</button>
+            <div id="contacts-list"></div>
         </div>
     </div>
 
-    <!-- MENÚ / PERFIL -->
+    <!-- VISTA MENÚ DE PERFIL -->
     <div id="view-menu" class="view">
         <div class="header-spatial">
             <span>Spatial Network</span>
             <div class="header-icons">
                 <span onclick="abrirModal('modal-qr')">📷</span>
-                <span onclick="abrirChatSoporte()">🤖</span>
                 <span onclick="abrirModal('modal-edit-profile')">✏️</span>
             </div>
         </div>
@@ -290,67 +393,35 @@ HTML_TEMPLATE = """
             <div class="status-bubble" onclick="abrirModal('modal-edit-profile')">
                 <span>💭</span> <span id="user-status-text">¡Hola! Estoy usando Spatial Network</span>
             </div>
-            <div class="profile-avatar-container" onclick="abrirModal('modal-edit-profile')">
-                <img id="user-avatar-img" src="https://api.dicebear.com/7.x/bottts/svg?seed=Jack" class="profile-avatar" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=Jack'">
-            </div>
-            <div id="user-display-name" style="font-size:22px; font-weight:bold; color:white;">Moises</div>
-            <div id="user-display-handle" style="font-size:14px; color:var(--text-muted); margin-top:2px;">@Jack</div>
-            <div style="font-size:13px; color:var(--accent-purple); margin-top:4px;">Contacto: Privado 🔒</div>
+            <img id="user-avatar-img" src="https://api.dicebear.com/7.x/bottts/svg?seed=jack" class="profile-avatar">
+            <div id="user-display-name" style="font-size:22px; font-weight:bold; color:white;">@usuario</div>
+            <div id="user-ip-text" style="font-size:12px; color:var(--text-muted); margin-top:4px;">IP Dispositivo: detectando...</div>
         </div>
 
-        <div class="menu-cards-list">
-            <div class="menu-card" onclick="cambiarTab('novedades')">
-                <div style="font-size:26px;">🎬</div>
+        <div class="menu-card" onclick="abrirModal('modal-qr')">
+                <div style="font-size:24px;">📱</div>
                 <div>
-                    <strong style="color:white; display:block;">Reproductor de Video</strong>
-                    <span style="color:var(--text-muted); font-size:12px;">Ver videos continuos estilo TikTok</span>
+                    <strong style="color:white; display:block;">Mi Código QR</strong>
+                    <span style="color:var(--text-muted); font-size:12px;">Muestra tu perfil a otros</span>
                 </div>
             </div>
 
-            <div class="menu-card" onclick="abrirModal('modal-edit-profile')">
-                <div style="font-size:26px;">✏️</div>
-                <div>
-                    <strong style="color:white; display:block;">Editar Perfil</strong>
-                    <span style="color:var(--text-muted); font-size:12px;">Cambiar foto, nombre y mensaje de estado</span>
-                </div>
-            </div>
-
-            <div class="menu-card" onclick="abrirChatSoporte()">
-                <div style="font-size:26px;">🤖</div>
-                <div>
-                    <strong style="color:white; display:block;">Amiti Soporte Técnico</strong>
-                    <span style="color:var(--text-muted); font-size:12px;">Abrir chat privado con soporte</span>
-                </div>
-            </div>
-
-            <div class="menu-card" onclick="abrirModal('modal-qr')">
-                <div style="font-size:26px;">📱</div>
-                <div>
-                    <strong style="color:white; display:block;">Mi Código QR / Escáner</strong>
-                    <span style="color:var(--text-muted); font-size:12px;">Escanea o muestra tu código</span>
-                </div>
-            </div>
-
-            <button class="btn-purple" style="background:#2d1b36; margin-top:12px;" onclick="cerrarSesion()">Cerrar Sesión</button>
+            <button class="btn-purple" style="background:#261833; margin-top:12px;" onclick="cerrarSesion()">Cerrar Sesión</button>
         </div>
     </div>
 
-    <!-- SALA DE CHAT / PRIVADO CON SOPORTE -->
+    <!-- SALA DE CHAT / PRIVADO -->
     <div id="view-room" class="view">
         <div class="header-spatial">
             <div style="display:flex; align-items:center; gap:10px;">
                 <button onclick="cambiarTab('chats')" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">←</button>
-                <span id="room-title">Amiti Soporte Técnico</span>
+                <span id="room-title">Chat</span>
             </div>
         </div>
-        <div id="chat-messages" style="flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;">
-            <div style="background:var(--bg-card); padding:12px; border-radius:12px; max-width:80%; border:1px solid var(--border);">
-                🤖 <strong>Amiti Soporte:</strong> ¡Hola! ¿En qué te puedo ayudar hoy con Spatial Network?
-            </div>
-        </div>
+        <div id="chat-messages" style="flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;"></div>
         <div style="padding:12px; background:var(--bg-card); border-top:1px solid var(--border); display:flex; gap:8px;">
-            <input type="text" id="message-input" class="input-field" placeholder="Escribe un mensaje..." onkeypress="if(event.key==='Enter') enviarMensajeSoporte()">
-            <button class="btn-purple" style="padding:0 20px;" onclick="enviarMensajeSoporte()">➤</button>
+            <input type="text" id="message-input" class="input-field" placeholder="Escribe un mensaje..." onkeypress="if(event.key==='Enter') enviarMensaje()">
+            <button class="btn-purple" style="padding:0 20px;" onclick="enviarMensaje()">➤</button>
         </div>
     </div>
 
@@ -370,100 +441,91 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- MODAL GLOBO DE ACCIONES -->
+    <div id="modal-action-globo" class="modal">
+        <div class="modal-content">
+            <h3 style="text-align:center; color:var(--accent-purple);">Opciones de Chat</h3>
+            <button class="btn-purple" onclick="cerrarModal('modal-action-globo'); abrirChatSoporte();">🤖 Abrir Chat de Soporte Técnico</button>
+            <button class="btn-purple" style="background:#1f1b36;" onclick="cerrarModal('modal-action-globo'); abrirModal('modal-add-contact');">👥 Sincronizar / Agregar Contacto</button>
+            <button class="btn-purple" style="background:#28233d;" onclick="cerrarModal('modal-action-globo')">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- MODAL PUBLICAR ESTADO (24H) -->
+    <div id="modal-new-status" class="modal">
+        <div class="modal-content">
+            <h3 style="text-align:center; color:var(--accent-purple);">Publicar Estado (24 Horas)</h3>
+            <input type="text" id="status-text" class="input-field" placeholder="¿Qué estás pensando?">
+            <input type="text" id="status-url" class="input-field" placeholder="URL de Foto o Video (Opcional)">
+            <button class="btn-purple" onclick="publicarEstado()">Publicar</button>
+            <button class="btn-purple" style="background:#28233d;" onclick="cerrarModal('modal-new-status')">Cancelar</button>
+        </div>
+    </div>
+
     <!-- MODAL EDITAR PERFIL -->
     <div id="modal-edit-profile" class="modal">
         <div class="modal-content">
             <h3 style="text-align:center; color:var(--accent-purple);">Editar Perfil</h3>
-            <label style="font-size:12px; color:var(--text-muted);">Nombre de usuario:</label>
-            <input type="text" id="edit-name" class="input-field" placeholder="Tu Nombre">
-            
-            <label style="font-size:12px; color:var(--text-muted);">URL de Foto / Avatar:</label>
-            <input type="text" id="edit-avatar" class="input-field" placeholder="https://link-de-tu-imagen.jpg">
-            
-            <label style="font-size:12px; color:var(--text-muted);">Mensaje de estado:</label>
-            <input type="text" id="edit-status" class="input-field" placeholder="Tu estado actual">
-            
-            <button class="btn-purple" onclick="guardarCambiosPerfil()">Guardar Cambios</button>
-            <button class="btn-purple" style="background:#231f38;" onclick="cerrarModal('modal-edit-profile')">Cancelar</button>
+            <input type="text" id="edit-name" class="input-field" placeholder="Nombre de usuario">
+            <input type="text" id="edit-avatar" class="input-field" placeholder="URL de Foto / Avatar">
+            <input type="text" id="edit-status" class="input-field" placeholder="Estado de perfil">
+            <button class="btn-purple" onclick="guardarPerfil()">Guardar Cambios</button>
+            <button class="btn-purple" style="background:#28233d;" onclick="cerrarModal('modal-edit-profile')">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- MODAL AGREGAR CONTACTO -->
+    <div id="modal-add-contact" class="modal">
+        <div class="modal-content">
+            <h3 style="text-align:center; color:var(--accent-purple);">Sincronizar Contacto</h3>
+            <input type="text" id="add-contact-input" class="input-field" placeholder="@usuario o número telefónico">
+            <button class="btn-purple" onclick="guardarContacto()">Guardar Contacto</button>
+            <button class="btn-purple" style="background:#28233d;" onclick="cerrarModal('modal-add-contact')">Cancelar</button>
         </div>
     </div>
 
     <!-- MODAL QR -->
     <div id="modal-qr" class="modal">
         <div class="modal-content">
-            <h3 style="text-align:center; color:var(--accent-purple);">Código QR</h3>
+            <h3 style="text-align:center; color:var(--accent-purple);">Mi Código QR</h3>
             <div style="display:flex; justify-content:center; padding:10px;"><canvas id="qr-canvas"></canvas></div>
-            <button class="btn-purple" style="background:#231f38;" onclick="cerrarModal('modal-qr')">Cerrar</button>
+            <button class="btn-purple" style="background:#28233d;" onclick="cerrarModal('modal-qr')">Cerrar</button>
         </div>
     </div>
 
     <script>
-        let usuario = JSON.parse(localStorage.getItem('spatial_user')) || {
-            id: 'jack',
-            name: 'Moises',
-            handle: '@Jack',
-            avatar_url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Jack',
-            status_text: '¡Hola! Estoy usando Spatial Network'
-        };
+        let usuario = JSON.parse(localStorage.getItem('spatial_user')) || null;
+        let contactosGuardados = JSON.parse(localStorage.getItem('spatial_contacts')) || [];
+        let activeChat = null;
 
         window.onload = () => {
-            renderizarUsuario();
-            cargarFeedVideos();
-            cambiarTab('chats');
+            if(!usuario) {
+                document.getElementById('view-auth').classList.add('active');
+            } else {
+                document.getElementById('view-auth').classList.remove('active');
+                renderizarUsuario();
+                cargarEstados();
+                renderizarContactos();
+                cambiarTab('chats');
+            }
         };
 
         function renderizarUsuario() {
-            if(!usuario.name || usuario.name === 'undefined') usuario.name = 'Moises';
-            if(!usuario.handle || usuario.handle === 'undefined') usuario.handle = '@Jack';
-            if(!usuario.avatar_url || usuario.avatar_url === 'undefined') usuario.avatar_url = 'https://api.dicebear.com/7.x/bottts/svg?seed=Jack';
-            if(!usuario.status_text) usuario.status_text = '¡Hola! Estoy usando Spatial Network';
-
-            document.getElementById('user-display-name').innerText = usuario.name;
-            document.getElementById('user-display-handle').innerText = usuario.handle;
+            if(!usuario) return;
+            document.getElementById('user-display-name').innerText = usuario.username || '@usuario';
             document.getElementById('user-avatar-img').src = usuario.avatar_url;
-            document.getElementById('user-status-text').innerText = usuario.status_text;
+            document.getElementById('user-status-text').innerText = usuario.status_text || '¡Hola! Estoy usando Spatial Network';
+            document.getElementById('user-ip-text').innerText = `IP Dispositivo: ${usuario.last_ip || 'Real'}`;
+            
+            document.getElementById('edit-name').value = usuario.username || '';
+            document.getElementById('edit-avatar').value = usuario.avatar_url || '';
+            document.getElementById('edit-status').value = usuario.status_text || '';
 
-            document.getElementById('edit-name').value = usuario.name;
-            document.getElementById('edit-avatar').value = usuario.avatar_url;
-            document.getElementById('edit-status').value = usuario.status_text;
-
-            generarQR();
-        }
-
-        async function guardarCambiosPerfil() {
-            usuario.name = document.getElementById('edit-name').value.trim() || 'Moises';
-            usuario.avatar_url = document.getElementById('edit-avatar').value.trim() || 'https://api.dicebear.com/7.x/bottts/svg?seed=Jack';
-            usuario.status_text = document.getElementById('edit-status').value.trim() || '¡Hola! Estoy usando Spatial Network';
-
-            localStorage.setItem('spatial_user', JSON.stringify(usuario));
-            renderizarUsuario();
-            cerrarModal('modal-edit-profile');
-
-            await fetch('/api/profile/update', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(usuario)
+            new QRious({
+                element: document.getElementById('qr-canvas'),
+                value: usuario.username || '@usuario',
+                size: 180, background: '#131122', foreground: '#8b5cf6'
             });
-        }
-
-        function abrirChatSoporte() {
-            document.getElementById('room-title').innerText = "Amiti Soporte Técnico";
-            cambiarTab('room');
-        }
-
-        function enviarMensajeSoporte() {
-            const input = document.getElementById('message-input');
-            const txt = input.value.trim();
-            if(!txt) return;
-
-            const box = document.getElementById('chat-messages');
-            box.innerHTML += `<div style="background:var(--accent-purple); color:white; padding:12px; border-radius:12px; align-self:flex-end; max-width:80%; margin-left:auto;">${txt}</div>`;
-            input.value = '';
-
-            setTimeout(() => {
-                box.innerHTML += `<div style="background:var(--bg-card); padding:12px; border-radius:12px; max-width:80%; border:1px solid var(--border);">🤖 <strong>Amiti Soporte:</strong> Mensaje recibido. Soporte en proceso.</div>`;
-                box.scrollTop = box.scrollHeight;
-            }, 800);
         }
 
         function switchAuthTab(tab) {
@@ -479,43 +541,163 @@ HTML_TEMPLATE = """
             }
         }
 
-        async function ejecutarLogin() {
-            const identity = document.getElementById('login-identity').value.trim();
-            const password = document.getElementById('login-password').value.trim();
-            const res = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ identity, password })
-            });
-            const data = await res.json();
-            if(data.user) {
-                usuario = data.user;
-                localStorage.setItem('spatial_user', JSON.stringify(usuario));
-                document.getElementById('view-auth').classList.remove('active');
-                renderizarUsuario();
-                cambiarTab('chats');
-            }
-        }
-
         async function ejecutarRegistro() {
-            const name = document.getElementById('reg-name').value.trim();
-            const handle = document.getElementById('reg-handle').value.trim();
+            const username = document.getElementById('reg-username').value.trim();
             const identity = document.getElementById('reg-identity').value.trim();
             const password = document.getElementById('reg-password').value.trim();
 
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name, handle, identity, password })
+                body: JSON.stringify({ username, identity, password })
             });
+
             const data = await res.json();
-            if(data.user) {
+            if(data.status === 'success') {
                 usuario = data.user;
                 localStorage.setItem('spatial_user', JSON.stringify(usuario));
                 document.getElementById('view-auth').classList.remove('active');
                 renderizarUsuario();
                 cambiarTab('chats');
+            } else {
+                alert(data.message || 'Error al registrarte');
             }
+        }
+
+        async function ejecutarLogin() {
+            const identity = document.getElementById('login-identity').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ identity, password })
+            });
+
+            const data = await res.json();
+            if(data.status === 'success') {
+                usuario = data.user;
+                localStorage.setItem('spatial_user', JSON.stringify(usuario));
+                document.getElementById('view-auth').classList.remove('active');
+                renderizarUsuario();
+                cambiarTab('chats');
+            } else {
+                alert(data.message || 'Error al ingresar');
+            }
+        }
+
+        async function publicarEstado() {
+            const text = document.getElementById('status-text').value.trim();
+            const url = document.getElementById('status-url').value.trim();
+            let type = 'text';
+            if(url.includes('.mp4')) type = 'video';
+            else if(url) type = 'image';
+
+            if(!text && !url) return;
+
+            await fetch('/api/statuses', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    user_id: usuario.id,
+                    username: usuario.username,
+                    type, url, text
+                })
+            });
+
+            document.getElementById('status-text').value = '';
+            document.getElementById('status-url').value = '';
+            cerrarModal('modal-new-status');
+            cargarEstados();
+        }
+
+        async function cargarEstados() {
+            const res = await fetch('/api/statuses');
+            const data = await res.json();
+            const container = document.getElementById('statuses-container');
+            container.innerHTML = '';
+
+            if(data.statuses && data.statuses.length > 0) {
+                data.statuses.forEach(s => {
+                    const card = document.createElement('div');
+                    card.className = 'status-card';
+                    let content = `<strong style="color:var(--accent-purple);">${s.username}</strong><p style="margin-top:6px;">${s.text}</p>`;
+                    if(s.type === 'image') content += `<img src="${s.url}" style="width:100%; border-radius:12px; margin-top:8px;">`;
+                    if(s.type === 'video') content += `<video src="${s.url}" controls style="width:100%; border-radius:12px; margin-top:8px;"></video>`;
+                    content += `<div style="font-size:10px; color:var(--text-muted); margin-top:8px;">Publicado con IP: ${s.client_ip}</div>`;
+                    card.innerHTML = content;
+                    container.appendChild(card);
+                });
+            } else {
+                container.innerHTML = `<div style="color:var(--text-muted); font-size:13px;">No hay estados activos en las últimas 24 horas.</div>`;
+            }
+        }
+
+        async function guardarContacto() {
+            const input = document.getElementById('add-contact-input').value.trim();
+            if(!input) return;
+
+            const res = await fetch('/api/contacts/sync', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: usuario.id, contact_handle: input })
+            });
+
+            const data = await res.json();
+            if(data.status === 'success') {
+                contactosGuardados.push(data.contact);
+                localStorage.setItem('spatial_contacts', JSON.stringify(contactosGuardados));
+                renderizarContactos();
+                cerrarModal('modal-add-contact');
+            }
+        }
+
+        function renderizarContactos() {
+            const list = document.getElementById('contacts-list');
+            list.innerHTML = '';
+            contactosGuardados.forEach(c => {
+                const item = document.createElement('div');
+                item.className = 'menu-card';
+                item.onclick = () => abrirChatDirecto(c.name);
+                item.innerHTML = `<img src="${c.avatar_url}" style="width:40px; height:40px; border-radius:50%;"><div><strong style="color:white; display:block;">${c.name}</strong><span style="color:var(--text-muted); font-size:12px;">${c.handle}</span></div>`;
+                list.appendChild(item);
+            });
+        }
+
+        function abrirChatSoporte() {
+            abrirChatDirecto("Amiti Soporte Técnico");
+        }
+
+        function abrirChatDirecto(titulo) {
+            activeChat = titulo;
+            document.getElementById('room-title').innerText = titulo;
+            document.getElementById('chat-messages').innerHTML = `<div style="background:var(--bg-card); padding:12px; border-radius:12px; max-width:85%; border:1px solid var(--border);">🤖 <strong>${titulo}:</strong> Hola, canal seguro directo conectado.</div>`;
+            cambiarTab('room');
+        }
+
+        function enviarMensaje() {
+            const input = document.getElementById('message-input');
+            const txt = input.value.trim();
+            if(!txt) return;
+
+            const box = document.getElementById('chat-messages');
+            box.innerHTML += `<div style="background:var(--accent-purple); color:white; padding:12px; border-radius:12px; align-self:flex-end; max-width:85%; margin-left:auto;">${txt}</div>`;
+            input.value = '';
+
+            setTimeout(() => {
+                box.innerHTML += `<div style="background:var(--bg-card); padding:12px; border-radius:12px; max-width:85%; border:1px solid var(--border);">🤖 <strong>${activeChat}:</strong> Mensaje procesado desde la red.</div>`;
+                box.scrollTop = box.scrollHeight;
+            }, 600);
+        }
+
+        function guardarPerfil() {
+            usuario.username = document.getElementById('edit-name').value.trim() || usuario.username;
+            usuario.avatar_url = document.getElementById('edit-avatar').value.trim() || usuario.avatar_url;
+            usuario.status_text = document.getElementById('edit-status').value.trim() || usuario.status_text;
+
+            localStorage.setItem('spatial_user', JSON.stringify(usuario));
+            renderizarUsuario();
+            cerrarModal('modal-edit-profile');
         }
 
         function cerrarSesion() {
@@ -534,29 +716,6 @@ HTML_TEMPLATE = """
             if(targetNav) targetNav.classList.add('active');
         }
 
-        function cargarFeedVideos() {
-            fetch('/api/social/videos/feed').then(r => r.json()).then(data => {
-                const feed = document.getElementById('tiktok-feed');
-                feed.innerHTML = '';
-                if(data.videos) {
-                    data.videos.forEach(v => {
-                        const card = document.createElement('div');
-                        card.className = 'tiktok-card';
-                        card.innerHTML = `<video src="${v.video_url}" controls loop playsinline></video>`;
-                        feed.appendChild(card);
-                    });
-                }
-            });
-        }
-
-        function generarQR() {
-            new QRious({
-                element: document.getElementById('qr-canvas'),
-                value: usuario.handle || '@Jack',
-                size: 180, background: '#12101f', foreground: '#a855f7'
-            });
-        }
-
         function abrirModal(id) { document.getElementById(id).classList.add('active'); }
         function cerrarModal(id) { document.getElementById(id).classList.remove('active'); }
     </script>
@@ -569,5 +728,5 @@ def index():
     return render_template_string(HTML_TEMPLATE)
 
 if __name__ == '__main__':
-    print(f"🚀 Servidor Spatial Network activo en puerto {PORT}...")
+    print(f"🚀 Servidor Spatial Network activo en el puerto {PORT}...")
     app.run(host='0.0.0.0', port=PORT, debug=False)
