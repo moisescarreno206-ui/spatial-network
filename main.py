@@ -11,15 +11,19 @@ from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from virals import router as virals_router
 
+# 👈 1. Importación del Módulo de Autenticación
+from modules.auth import router as auth_router
+
 app = FastAPI(title="Spatial Network - Engine Core")
 
-# 1. Registrar rutas adicionales (ej. Virales)
+# 2. Registrar rutas adicionales (Virales y Autenticación)
 app.include_router(virals_router)
+app.include_router(auth_router)  # 👈 Integrado aquí
 
-# 2. Gestor de conexiones WebSocket activa
+# 3. Gestor de conexiones WebSocket activa
 manager = ConnectionManager()
 
-# 3. Ubicación exacta de la plantilla gráfica (templates/index.html)
+# 4. Ubicación exacta de la plantilla gráfica (templates/index.html)
 BASE_DIR = Path(__file__).resolve().parent
 INDEX_FILE = BASE_DIR / "templates" / "index.html"
 
@@ -142,4 +146,4 @@ if __name__ == "__main__":
   import uvicorn
 
   uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-                           
+    
