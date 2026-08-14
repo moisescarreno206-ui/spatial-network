@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spatial Network - Autenticación</title>
+    <style>
+        body { font-family: sans-serif; background: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .logo { font-size: 40px; color: #0064e0; font-weight: bold; margin: 40px 0; }
+        .container { width: 100%; max-width: 350px; }
+        input { width: 100%; padding: 15px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-primary { background: #0064e0; color: #fff; }
+        .btn-secondary { background: #e4e6eb; color: #000; }
+        .link { color: #0064e0; text-align: center; margin-top: 15px; cursor: pointer; }
+        #register-view { display: none; }
+    </style>
+</head>
+<body>
+    <div class="logo">f</div> <!-- Puedes reemplazar esto con tu logo -->
+
+    <!-- VISTA LOGIN -->
+    <div id="login-view" class="container">
+        <input type="text" placeholder="Móvil o correo electrónico">
+        <input type="password" placeholder="Contraseña">
+        <button class="btn-primary" onclick="alert('Login...')">Iniciar sesión</button>
+        <div class="link">¿Has olvidado la contraseña?</div>
+        <hr style="margin: 20px 0;">
+        <button class="btn-secondary" onclick="toggleView()">Crear cuenta nueva</button>
+    </div>
+
+    <!-- VISTA REGISTRO -->
+    <div id="register-view" class="container">
+        <input type="text" placeholder="Nombre completo">
+        <input type="date" placeholder="Fecha de nacimiento">
+        <input type="text" placeholder="Móvil o correo electrónico">
+        <input type="password" placeholder="Contraseña">
+        <button class="btn-primary" onclick="alert('Registrando...')">Registrarse</button>
+        <div class="link" onclick="toggleView()">¿Ya tienes cuenta? Inicia sesión</div>
+    </div>
+
+    <script>
+        function toggleView() {
+            const login = document.getElementById('login-view');
+            const register = document.getElementById('register-view');
+            login.style.display = (login.style.display === 'none') ? 'block' : 'none';
+            register.style.display = (register.style.display === 'none') ? 'block' : 'none';
+        }
+    </script>
+</body>
+</html>
