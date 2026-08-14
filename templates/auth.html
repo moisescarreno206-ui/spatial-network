@@ -5,46 +5,134 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spatial Network - Autenticación</title>
     <style>
-        body { font-family: sans-serif; background: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .logo { font-size: 40px; color: #0064e0; font-weight: bold; margin: 40px 0; }
-        .container { width: 100%; max-width: 350px; }
-        input { width: 100%; padding: 15px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .btn-primary { background: #0064e0; color: #fff; }
-        .btn-secondary { background: #e4e6eb; color: #000; }
-        .link { color: #0064e0; text-align: center; margin-top: 15px; cursor: pointer; }
-        #register-view { display: none; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #0d0f18; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; color: #fff; }
+        
+        .card { width: 100%; max-width: 400px; background: #16192b; border: 1px solid #232742; border-radius: 20px; padding: 32px 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; }
+        
+        .logo-title { font-size: 22px; font-weight: 800; letter-spacing: 1px; background: linear-gradient(90deg, #c084fc, #e879f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 6px; }
+        .logo-subtitle { font-size: 13px; color: #94a3b8; text-align: center; margin-bottom: 28px; line-height: 1.4; }
+        
+        .tabs { display: flex; width: 100%; border-bottom: 1px solid #2a2f55; margin-bottom: 24px; position: relative; }
+        .tab { flex: 1; text-align: center; padding-bottom: 12px; font-size: 15px; font-weight: 600; color: #64748b; cursor: pointer; transition: color 0.2s; }
+        .tab.active { color: #c084fc; }
+        .tab-indicator { position: absolute; bottom: -1px; left: 0; width: 50%; height: 2px; background: #c084fc; transition: transform 0.3s ease; box-shadow: 0 0 10px #c084fc; }
+        
+        .input-box { width: 100%; display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+        .input-box label { font-size: 13px; color: #cbd5e1; font-weight: 500; }
+        
+        input { width: 100%; padding: 14px 16px; background-color: #1e223f; border: 1px solid #2a2f55; border-radius: 12px; font-size: 14px; color: #fff; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+        input:focus { border-color: #c084fc; box-shadow: 0 0 8px rgba(192, 132, 252, 0.3); }
+        input::placeholder { color: #64748b; }
+        
+        .btn-main { width: 100%; padding: 14px; background: linear-gradient(135deg, #8b5cf6, #a855f7); color: #fff; border: none; border-radius: 12px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4); transition: opacity 0.2s; }
+        .btn-main:hover { opacity: 0.9; }
+        
+        .form-section { width: 100%; display: none; flex-direction: column; }
+        .form-section.active { display: flex; }
     </style>
 </head>
 <body>
-    <div class="logo">f</div> <!-- Puedes reemplazar esto con tu logo -->
 
-    <!-- VISTA LOGIN -->
-    <div id="login-view" class="container">
-        <input type="text" placeholder="Móvil o correo electrónico">
-        <input type="password" placeholder="Contraseña">
-        <button class="btn-primary" onclick="alert('Login...')">Iniciar sesión</button>
-        <div class="link">¿Has olvidado la contraseña?</div>
-        <hr style="margin: 20px 0;">
-        <button class="btn-secondary" onclick="toggleView()">Crear cuenta nueva</button>
-    </div>
+    <div class="card">
+        <div class="logo-title">SPATIAL NETWORK</div>
+        <div class="logo-subtitle">Red Social y Transmisión Multimedia Global</div>
 
-    <!-- VISTA REGISTRO -->
-    <div id="register-view" class="container">
-        <input type="text" placeholder="Nombre completo">
-        <input type="date" placeholder="Fecha de nacimiento">
-        <input type="text" placeholder="Móvil o correo electrónico">
-        <input type="password" placeholder="Contraseña">
-        <button class="btn-primary" onclick="alert('Registrando...')">Registrarse</button>
-        <div class="link" onclick="toggleView()">¿Ya tienes cuenta? Inicia sesión</div>
+        <div class="tabs">
+            <div class="tab" id="tab-login" onclick="switchTab('login')">Ingresar</div>
+            <div class="tab active" id="tab-register" onclick="switchTab('register')">Registrarse</div>
+            <div class="tab-indicator" id="indicator" style="transform: translateX(100%);"></div>
+        </div>
+
+        <!-- FORMULARIO INICIAR SESIÓN -->
+        <form id="login-form" class="form-section" onsubmit="handleLogin(event)">
+            <div class="input-box">
+                <label>Correo electrónico o usuario</label>
+                <input type="text" id="login-user" placeholder="usuario@espacio.com" required>
+            </div>
+            <div class="input-box">
+                <label>Contraseña</label>
+                <input type="password" id="login-pass" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn-main">Ingresar</button>
+        </form>
+
+        <!-- FORMULARIO REGISTRARSE -->
+        <form id="register-form" class="form-section active" onsubmit="handleRegister(event)">
+            <div class="input-box">
+                <label>Nombre de usuario</label>
+                <input type="text" id="reg-name" placeholder="@usuario" required>
+            </div>
+            <div class="input-box">
+                <label>Fecha de nacimiento</label>
+                <input type="date" id="reg-dob" required>
+            </div>
+            <div class="input-box">
+                <label>Correo electrónico</label>
+                <input type="email" id="reg-email" placeholder="usuario@espacio.com" required>
+            </div>
+            <div class="input-box">
+                <label>Contraseña</label>
+                <input type="password" id="reg-pass" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn-main">Crear Cuenta</button>
+        </form>
     </div>
 
     <script>
-        function toggleView() {
-            const login = document.getElementById('login-view');
-            const register = document.getElementById('register-view');
-            login.style.display = (login.style.display === 'none') ? 'block' : 'none';
-            register.style.display = (register.style.display === 'none') ? 'block' : 'none';
+        function switchTab(tabName) {
+            const loginTab = document.getElementById('tab-login');
+            const regTab = document.getElementById('tab-register');
+            const loginForm = document.getElementById('login-form');
+            const regForm = document.getElementById('register-form');
+            const indicator = document.getElementById('indicator');
+
+            if (tabName === 'login') {
+                loginTab.classList.add('active');
+                regTab.classList.remove('active');
+                loginForm.classList.add('active');
+                regForm.classList.remove('active');
+                indicator.style.transform = 'translateX(0%)';
+            } else {
+                regTab.classList.add('active');
+                loginTab.classList.remove('active');
+                regForm.classList.add('active');
+                loginForm.classList.remove('active');
+                indicator.style.transform = 'translateX(100%)';
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('username', document.getElementById('login-user').value);
+            formData.append('password', document.getElementById('login-pass').value);
+
+            const res = await fetch('/auth/login', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (res.ok) {
+                alert('¡Ingreso exitoso!');
+            } else {
+                alert(data.detail || 'Error en inicio de sesión');
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('full_name', document.getElementById('reg-name').value);
+            formData.append('dob', document.getElementById('reg-dob').value);
+            formData.append('email', document.getElementById('reg-email').value);
+            formData.append('password', document.getElementById('reg-pass').value);
+
+            const res = await fetch('/auth/register', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (res.ok) {
+                alert('¡Cuenta creada correctamente!');
+                switchTab('login');
+            } else {
+                alert(data.detail || 'Error al registrar');
+            }
         }
     </script>
 </body>
