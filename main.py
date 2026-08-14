@@ -11,38 +11,52 @@ from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from virals import router as virals_router
 
-# 👈 1. Importación del Módulo de Autenticación
+# 1. Importación del Módulo de Autenticación
 from modules.auth import router as auth_router
 
 app = FastAPI(title="Spatial Network - Engine Core")
 
 # 2. Registrar rutas adicionales (Virales y Autenticación)
 app.include_router(virals_router)
-app.include_router(auth_router)  # 👈 Integrado aquí
+app.include_router(auth_router)
 
 # 3. Gestor de conexiones WebSocket activa
 manager = ConnectionManager()
 
-# 4. Ubicación exacta de la plantilla gráfica (templates/index.html)
+# 4. Ubicación exacta de las plantillas gráficas
 BASE_DIR = Path(__file__).resolve().parent
+AUTH_FILE = BASE_DIR / "templates" / "auth.html"
 INDEX_FILE = BASE_DIR / "templates" / "index.html"
 
 
-# 🏠 Ruta Raíz: Carga la pantalla de prueba del chat directamente
+# 🏠 Ruta Raíz: Carga la pantalla de Autenticación (Login / Registro)
 @app.get("/")
 async def get_home():
+  if AUTH_FILE.exists():
+    return FileResponse(AUTH_FILE)
+
+  # Respaldo por si auth.html estuviera suelto en la raíz
+  root_auth = BASE_DIR / "auth.html"
+  if root_auth.exists():
+    return FileResponse(root_auth)
+
+  return HTMLResponse(
+      "<h2>🟢 Servidor Activo. Asegúrate de tener auth.html en la carpeta"
+      " templates/</h2>"
+  )
+
+
+# 🧪 Ruta de Pruebas: Motor de prueba de WebSocket (chat previo)
+@app.get("/test-ws")
+async def get_test_ws():
   if INDEX_FILE.exists():
     return FileResponse(INDEX_FILE)
 
-  # Respaldo por si index.html estuviera suelto en la raíz
   root_index = BASE_DIR / "index.html"
   if root_index.exists():
     return FileResponse(root_index)
 
-  return HTMLResponse(
-      "<h2>🟢 Servidor Activo. Asegúrate de tener index.html en la carpeta"
-      " templates/</h2>"
-  )
+  return HTMLResponse("<h2>Motor de pruebas no encontrado.</h2>")
 
 
 # ⚡ Endpoint WebSocket principal (/ws/chat)
