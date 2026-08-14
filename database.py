@@ -55,3 +55,33 @@ def mark_pending_as_delivered(recipient_id: int):
       "destinatario_id", recipient_id
   ).eq("leido", False).execute()
   
+# ==========================================
+# FUNCIONES DE AUTENTICACIÓN (MÓDULO 1)
+# ==========================================
+
+def save_user(full_name: str, dob: str, email: str, password: str):
+    """Guarda un nuevo usuario en la base de datos de Supabase."""
+    try:
+        data = {
+            "full_name": full_name,
+            "dob": dob,
+            "email": email,
+            "password": password  # Luego le agregamos encriptación
+        }
+        response = supabase.table("users").insert(data).execute()
+        return response.data
+    except Exception as e:
+        print(f"⚠️ Error guardando usuario en Supabase: {e}")
+        return None
+
+def verify_user_credentials(username: str, password: str):
+    """Verifica si el correo/móvil y contraseña coinciden en Supabase."""
+    try:
+        response = supabase.table("users").select("*").eq("email", username).eq("password", password).execute()
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        return None
+    except Exception as e:
+        print(f"⚠️ Error verificando usuario en Supabase: {e}")
+        return None
+        
