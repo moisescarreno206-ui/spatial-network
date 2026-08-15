@@ -66,9 +66,10 @@ def save_user(full_name: str, dob: str, email: str, password: str):
             "full_name": full_name,
             "dob": dob,
             "email": email,
-            "password": password  # Luego le agregamos encriptación
+            "password": password
         }
         response = supabase.table("users").insert(data).execute()
+        print(f"✅ Usuario guardado con éxito: {response.data}")
         return response.data
     except Exception as e:
         print(f"⚠️ Error guardando usuario en Supabase: {e}")
@@ -77,25 +78,26 @@ def save_user(full_name: str, dob: str, email: str, password: str):
 def verify_user_credentials(username: str, password: str):
     """Verifica si el correo o nombre de usuario y contraseña coinciden en Supabase."""
     try:
-        # Limpiamos cualquier espacio accidental al inicio o final del texto ingresado
         clean_username = username.strip() if username else ""
-        print(f"🔍 Buscando credenciales para: '{clean_username}'")
+        print(f"🔍 Buscando credenciales para: '{clean_username}' con contraseña: '{password}'")
         
         # 1. Buscar por correo electrónico (email)
-        response = supabase.table("users").select("*").eq("email", clean_username).eq("password", password).execute()
-        if response.data and len(response.data) > 0:
+        res_email = supabase.table("users").select("*").eq("email", clean_username).eq("password", password).execute()
+        print(f"📦 Resultado búsqueda por email: {res_email.data}")
+        if res_email.data and len(res_email.data) > 0:
             print("✅ ¡Usuario encontrado por email!")
-            return response.data[0]
+            return res_email.data[0]
         
         # 2. Buscar por nombre de usuario (full_name)
-        response = supabase.table("users").select("*").eq("full_name", clean_username).eq("password", password).execute()
-        if response.data and len(response.data) > 0:
+        res_name = supabase.table("users").select("*").eq("full_name", clean_username).eq("password", password).execute()
+        print(f"📦 Resultado búsqueda por full_name: {res_name.data}")
+        if res_name.data and len(res_name.data) > 0:
             print("✅ ¡Usuario encontrado por full_name!")
-            return response.data[0]
+            return res_name.data[0]
             
         print("❌ Supabase no devolvió ningún registro con estos datos.")
         return None
     except Exception as e:
-        print(f"⚠️ Error verificando usuario en Supabase: {e}")
+        print(f"⚠️ Error crítico en verify_user_credentials: {e}")
         return None
         
