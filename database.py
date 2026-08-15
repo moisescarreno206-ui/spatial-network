@@ -81,17 +81,18 @@ def verify_user_credentials(username: str, password: str):
     """Verifica si el correo o nombre de usuario y contraseña coinciden en Supabase."""
     try:
         clean_username = username.strip() if username else ""
-        print(f"🔍 Buscando credenciales para: '{clean_username}' con contraseña: '{password}'")
+        clean_password = password.strip() if password else ""
+        print(f"🔍 Buscando credenciales para: '{clean_username}' con contraseña: '{clean_password}'")
         
-        # 1. Buscar por correo electrónico (usando ilike para ignorar mayúsculas/minúsculas del teclado móvil)
-        res_email = supabase.table("users").select("*").ilike("email", clean_username).eq("password", password).execute()
+        # 1. Buscar por correo electrónico (ignorando mayúsculas/minúsculas)
+        res_email = supabase.table("users").select("*").ilike("email", clean_username).eq("password", clean_password).execute()
         print(f"📦 Resultado búsqueda por email: {res_email.data}")
         if res_email.data and len(res_email.data) > 0:
             print("✅ ¡Usuario encontrado por email!")
             return res_email.data[0]
         
-        # 2. Buscar por nombre de usuario (full_name)
-        res_name = supabase.table("users").select("*").eq("full_name", clean_username).eq("password", password).execute()
+        # 2. Buscar por nombre de usuario / full_name (ignorando mayúsculas/minúsculas)
+        res_name = supabase.table("users").select("*").ilike("full_name", clean_username).eq("password", clean_password).execute()
         print(f"📦 Resultado búsqueda por full_name: {res_name.data}")
         if res_name.data and len(res_name.data) > 0:
             print("✅ ¡Usuario encontrado por full_name!")
@@ -102,4 +103,3 @@ def verify_user_credentials(username: str, password: str):
     except Exception as e:
         print(f"⚠️ Error crítico en verify_user_credentials: {e}")
         return None
-
