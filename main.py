@@ -28,14 +28,18 @@ BASE_DIR = Path(__file__).resolve().parent
 AUTH_FILE = BASE_DIR / "templates" / "auth.html"
 INDEX_FILE = BASE_DIR / "templates" / "index.html"
 
-CHATS_FILE = BASE_DIR / "templates" / "chats.html"
-
 
 @app.get("/chats")
 async def get_chats_view():
-  if CHATS_FILE.exists():
-    return FileResponse(CHATS_FILE)
-  return HTMLResponse("<h2>Archivo chats.html no encontrado en templates/</h2>")
+  """Carga la interfaz principal del chat utilizando index.html"""
+  if INDEX_FILE.exists():
+    return FileResponse(INDEX_FILE)
+  
+  root_index = BASE_DIR / "index.html"
+  if root_index.exists():
+    return FileResponse(root_index)
+
+  return HTMLResponse("<h2>Archivo index.html no encontrado en templates/</h2>")
 
 
 # 🏠 Ruta Raíz: Carga la pantalla de Autenticación (Login / Registro)
