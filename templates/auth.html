@@ -112,6 +112,7 @@
             const data = await res.json();
             if (res.ok) {
                 alert('¡Ingreso exitoso!');
+                window.location.href = '/chats';
             } else {
                 alert(data.detail || 'Error en inicio de sesión');
             }
