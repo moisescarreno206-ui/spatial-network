@@ -68,11 +68,13 @@ def save_user(full_name: str, dob: str, email: str, password: str):
             "email": email,
             "password": password
         }
+        # Intentamos guardar
         response = supabase.table("users").insert(data).execute()
         print(f"✅ Usuario guardado con éxito: {response.data}")
         return response.data
     except Exception as e:
-        print(f"⚠️ Error guardando usuario en Supabase: {e}")
+        # AQUÍ ESTÁ EL CAMBIO: Imprimimos el error técnico completo
+        print(f"⚠️ ERROR DETALLADO DE SUPABASE: {e}")
         return None
 
 def verify_user_credentials(username: str, password: str):
