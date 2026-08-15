@@ -83,8 +83,8 @@ def verify_user_credentials(username: str, password: str):
         clean_username = username.strip() if username else ""
         print(f"🔍 Buscando credenciales para: '{clean_username}' con contraseña: '{password}'")
         
-        # 1. Buscar por correo electrónico (email)
-        res_email = supabase.table("users").select("*").eq("email", clean_username).eq("password", password).execute()
+        # 1. Buscar por correo electrónico (usando ilike para ignorar mayúsculas/minúsculas del teclado móvil)
+        res_email = supabase.table("users").select("*").ilike("email", clean_username).eq("password", password).execute()
         print(f"📦 Resultado búsqueda por email: {res_email.data}")
         if res_email.data and len(res_email.data) > 0:
             print("✅ ¡Usuario encontrado por email!")
@@ -102,4 +102,4 @@ def verify_user_credentials(username: str, password: str):
     except Exception as e:
         print(f"⚠️ Error crítico en verify_user_credentials: {e}")
         return None
-        
+
