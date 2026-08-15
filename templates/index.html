@@ -8,14 +8,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --bg-card: #1e293b;
+            --bg-primary: #0b1320;
+            --bg-secondary: #151e32;
+            --bg-card: #151e32;
             --accent-green: #22c55e;
             --accent-hover: #16a34a;
-            --text-main: #f8fafc;
+            --text-main: #e2e8f0;
             --text-muted: #94a3b8;
-            --border-color: #334155;
+            --border-color: #233048;
         }
 
         * {
@@ -273,7 +273,7 @@
 
         .btn-send {
             background-color: var(--accent-green);
-            color: #0f172a;
+            color: #0b1320;
             border: none;
             width: 42px;
             height: 42px;
@@ -283,6 +283,7 @@
             justify-content: center;
             cursor: pointer;
             font-size: 16px;
+            font-weight: 700;
         }
 
         .btn-send:hover {
@@ -295,7 +296,7 @@
             bottom: 75px;
             right: 20px;
             background-color: var(--accent-green);
-            color: #0f172a;
+            color: #0b1320;
             width: 56px;
             height: 56px;
             border-radius: 16px;
@@ -422,7 +423,7 @@
         </div>
     </div>
 
-    <!-- VISTA DE CHAT ACTIVO (Se abre al seleccionar un destinatario) -->
+    <!-- VISTA DE CHAT ACTIVO -->
     <div id="chat-room-view">
         <div class="chat-room-header">
             <i class="fa-solid fa-arrow-left" onclick="closeChatRoom()"></i>
@@ -468,7 +469,6 @@
         let currentRecipientId = null;
         let currentUserId = null;
 
-        // Auto-conectar WebSocket usando la sesión del usuario guardada
         window.onload = () => {
             const rawUser = localStorage.getItem("spatial_user");
             if (!rawUser) {
@@ -508,7 +508,6 @@
             };
         };
 
-        // Control del menú desplegable superior
         const menuToggle = document.getElementById('menu-toggle');
         const dropdownMenu = document.getElementById('dropdownMenu');
 
@@ -521,7 +520,6 @@
             dropdownMenu.classList.remove('show');
         });
 
-        // Cambio de pestañas inferiores
         function switchTab(tabName, element) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
@@ -539,7 +537,6 @@
             element.classList.add('active');
         }
 
-        // Iniciar nuevo chat pidiendo el ID del destinatario
         function promptNewChat() {
             const recipient = prompt("Ingresa el ID del usuario con el que deseas chatear:");
             if (recipient && recipient.trim() !== "") {
@@ -547,7 +544,6 @@
             }
         }
 
-        // Abrir ventana de chat con un usuario
         function openChat(recipientId) {
             currentRecipientId = recipientId;
             document.getElementById('activeChatName').innerText = `Chat con: ${recipientId}`;
@@ -560,7 +556,6 @@
             currentRecipientId = null;
         }
 
-        // Enviar mensaje a través del WebSocket
         function sendMessage() {
             if (!isConnected) {
                 alert("No estás conectado al servidor en tiempo real.");
@@ -599,7 +594,6 @@
             box.scrollTop = box.scrollHeight;
         }
 
-        // Cierre de sesión unificado
         function cerrarSesion() {
             localStorage.removeItem("spatial_user");
             window.location.href = "/";
