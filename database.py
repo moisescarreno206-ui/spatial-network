@@ -77,18 +77,23 @@ def save_user(full_name: str, dob: str, email: str, password: str):
 def verify_user_credentials(username: str, password: str):
     """Verifica si el correo o nombre de usuario y contraseña coinciden en Supabase."""
     try:
-        # 1. Intentar buscar por correo electrónico (email)
+        print(f"🔍 Buscando credenciales para: '{username}'")
+        
+        # 1. Buscar por correo electrónico (email)
         response = supabase.table("users").select("*").eq("email", username).eq("password", password).execute()
         if response.data and len(response.data) > 0:
+            print("✅ ¡Usuario encontrado por email!")
             return response.data[0]
         
-        # 2. Si no se encuentra, intentar buscar por nombre de usuario (full_name)
+        # 2. Buscar por nombre de usuario (full_name)
         response = supabase.table("users").select("*").eq("full_name", username).eq("password", password).execute()
         if response.data and len(response.data) > 0:
+            print("✅ ¡Usuario encontrado por full_name!")
             return response.data[0]
             
+        print("❌ Supabase no devolvió ningún registro con estos datos.")
         return None
     except Exception as e:
         print(f"⚠️ Error verificando usuario en Supabase: {e}")
         return None
-    
+        
