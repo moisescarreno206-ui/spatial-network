@@ -20,10 +20,12 @@ app.register_blueprint(settings_bp)
 
 @app.route('/')
 def index():
-    # Persistencia de sesión en el servidor: si ya hay una sesión activa, redirige al chat automáticamente
+    # Si ya hay una sesión activa, redirige automáticamente al chat
     if 'user' in session:
         return redirect('/chats')
-    return render_template('index.html')
+    
+    # Muestra la pantalla de autenticación (Login / Registro) por defecto
+    return render_template('auth.html')
 
 if __name__ == '__main__':
     print(f"🚀 Servidor Modular Spatial Network ejecutándose en el puerto {PORT}...")
