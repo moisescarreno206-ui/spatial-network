@@ -78,27 +78,37 @@ def save_user(full_name: str, dob: str, email: str, password: str):
         return None
 
 def verify_user_credentials(username: str, password: str):
-    """Verifica si el correo o nombre de usuario y contraseña coinciden en Supabase."""
+    """Verifica credenciales mostrando un diagnóstico detallado en los logs de Render."""
     try:
         clean_username = username.strip() if username else ""
         clean_password = password.strip() if password else ""
-        print(f"🔍 Buscando credenciales para: '{clean_username}' con contraseña: '{clean_password}'")
+        print(f"\n🔍 [LOGIN] Buscando -> Usuario/Email: '{clean_username}' | Contraseña: '{clean_password}'")
         
-        # 1. Buscar por correo electrónico (ignorando mayúsculas/minúsculas)
-        res_email = supabase.table("users").select("*").ilike("email", clean_username).eq("password", clean_password).execute()
-        print(f"📦 Resultado búsqueda por email: {res_email.data}")
-        if res_email.data and len(res_email.data) > 0:
-            print("✅ ¡Usuario encontrado por email!")
-            return res_email.data[0]
+        # Traemos TODOS los usuarios de la tabla para inspeccionarlos
+        all_users = supabase.table("users").select("*").execute()
+        print(f"📋 [DEBUG] Registros totales en la tabla 'users': {all_users.data}")
         
-        # 2. Buscar por nombre de usuario / full_name (ignorando mayúsculas/minúsculas)
-        res_name = supabase.table("users").select("*").ilike("full_name", clean_username).eq("password", clean_password).execute()
-        print(f"📦 Resultado búsqueda por full_name: {res_name.data}")
-        if res_name.data and len(res_name.data) > 0:
-            print("✅ ¡Usuario encontrado por full_name!")
-            return res_name.data[0]
+        if not all_users.data:
+            print("❌ [DEBUG] La tabla 'users' está vacía. Nadie se ha registrado correctamente.")
+            return None
+
+        # Revisamos registro por registro para ver dónde falla la coincidencia
+        for user in all_users.data:
+            db_email = str(user.get("email", "")).strip()
+            db_name = str(user.get("full_name", "")).strip()
+            db_pass = str(user.get("password", "")).strip()
             
-        print("❌ Supabase no devolvió ningún registro con estos datos.")
+            print(f"-> Comparando con DB -> email: '{db_email}', name: '{db_name}', pass: '{db_pass}'")
+            
+            email_match = db_email.lower() == clean_username.lower()
+            name_match = db_name.lower() == clean_username.lower()
+            pass_match = db_pass == clean_password
+            
+            if (email_match or name_match) and pass_match:
+                print(f"✅ ¡Coincidencia exacta encontrada para el usuario ID {user.get('id')}!")
+                return user
+        
+        print("❌ [DEBUG] Ningún usuario coincide con los datos ingresados.")
         return None
     except Exception as e:
         print(f"⚠️ Error crítico en verify_user_credentials: {e}")
