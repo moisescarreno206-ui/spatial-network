@@ -44,10 +44,30 @@
             border-bottom: 1px solid var(--border-color);
         }
 
+        .header-title-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
         .app-title {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
             color: var(--text-main);
+        }
+
+        /* Indicador de conexión en vivo */
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ef4444;
+            display: inline-block;
+        }
+
+        .status-indicator.online {
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
         }
 
         .header-actions {
@@ -91,6 +111,7 @@
             text-decoration: none;
             font-size: 14px;
             border-bottom: 1px solid rgba(255,255,255,0.05);
+            cursor: pointer;
         }
 
         .dropdown-item:hover {
@@ -107,7 +128,8 @@
         }
 
         .tab-content.active {
-            display: block;
+            display: flex;
+            flex-direction: column;
         }
 
         /* Barra de búsqueda interna */
@@ -139,9 +161,11 @@
             color: var(--text-muted);
         }
 
-        /* Lista de Chats vacía inicialmente */
+        /* Lista de Chats */
         .chat-list {
             list-style: none;
+            flex: 1;
+            overflow-y: auto;
         }
 
         .empty-chats {
@@ -149,7 +173,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 60vh;
+            height: 50vh;
             color: var(--text-muted);
             text-align: center;
             padding: 0 20px;
@@ -163,6 +187,106 @@
 
         .empty-chats p {
             font-size: 14px;
+        }
+
+        /* --- VISTA DE CONVERSACIÓN ACTIVA (Chat Drawer) --- */
+        #chat-room-view {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            background-color: var(--bg-primary);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 20;
+        }
+
+        .chat-room-header {
+            background-color: var(--bg-secondary);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .chat-room-header i {
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .chat-room-header i:hover {
+            color: var(--accent-green);
+        }
+
+        #chat-window {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .msg-bubble {
+            max-width: 75%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            word-break: break-word;
+        }
+
+        .msg-bubble.sent {
+            align-self: flex-end;
+            background-color: #15803d;
+            color: #ffffff;
+        }
+
+        .msg-bubble.received {
+            align-self: flex-start;
+            background-color: var(--bg-secondary);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        .input-bar {
+            background-color: var(--bg-secondary);
+            padding: 10px 16px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .input-bar input {
+            flex: 1;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 10px 16px;
+            color: var(--text-main);
+            outline: none;
+            font-size: 14px;
+        }
+
+        .btn-send {
+            background-color: var(--accent-green);
+            color: #0f172a;
+            border: none;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .btn-send:hover {
+            background-color: var(--accent-hover);
         }
 
         /* --- BOTÓN FLOTANTE (FAB) --- */
@@ -235,7 +359,10 @@
 
     <!-- BARRA SUPERIOR -->
     <header class="app-header">
-        <span class="app-title">Spatial Network</span>
+        <div class="header-title-wrapper">
+            <span class="status-indicator" id="statusDot"></span>
+            <span class="app-title">Spatial Network</span>
+        </div>
         <div class="header-actions">
             <i class="fa-solid fa-camera"></i>
             <i class="fa-solid fa-magnifying-glass" id="search-toggle"></i>
@@ -244,11 +371,11 @@
 
         <!-- Menú Desplegable -->
         <div class="dropdown-menu" id="dropdownMenu">
-            <a href="#" class="dropdown-item">Nuevo grupo</a>
-            <a href="#" class="dropdown-item">Nueva difusión</a>
-            <a href="#" class="dropdown-item">Dispositivos vinculados</a>
-            <a href="#" class="dropdown-item">Destacados</a>
-            <a href="#" class="dropdown-item" onclick="cerrarSesion()">Ajustes / Salir</a>
+            <a class="dropdown-item">Nuevo grupo</a>
+            <a class="dropdown-item">Nueva difusión</a>
+            <a class="dropdown-item">Dispositivos vinculados</a>
+            <a class="dropdown-item">Destacados</a>
+            <div class="dropdown-item" onclick="cerrarSesion()">Ajustes / Salir</div>
         </div>
     </header>
 
@@ -263,11 +390,10 @@
             </div>
         </div>
 
-        <!-- Lista totalmente vacía lista para llenarse con los usuarios reales de la red -->
         <ul class="chat-list" id="chatListContainer">
             <div class="empty-chats">
                 <i class="fa-solid fa-comments"></i>
-                <p>Aún no tienes chats activos en Spatial Network.<br>Presiona el botón inferior para comenzar.</p>
+                <p>Aún no tienes chats activos.<br>Presiona el botón inferior para iniciar una conversación.</p>
             </div>
         </ul>
     </div>
@@ -296,8 +422,23 @@
         </div>
     </div>
 
-    <!-- BOTÓN FLOTANTE (FAB) -->
-    <div class="fab" title="Nuevo chat">
+    <!-- VISTA DE CHAT ACTIVO (Se abre al seleccionar un destinatario) -->
+    <div id="chat-room-view">
+        <div class="chat-room-header">
+            <i class="fa-solid fa-arrow-left" onclick="closeChatRoom()"></i>
+            <span id="activeChatName" style="font-weight: 600;">Conversación</span>
+        </div>
+        <div id="chat-window">
+            <!-- Los mensajes aparecerán aquí -->
+        </div>
+        <div class="input-bar">
+            <input type="text" id="msgInput" placeholder="Escribe un mensaje espacial..." onkeypress="handleEnter(event)">
+            <button class="btn-send" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <!-- BOTÓN FLOTANTE (FAB) PARA NUEVO CHAT -->
+    <div class="fab" title="Iniciar chat" onclick="promptNewChat()">
         <i class="fa-solid fa-comment-medical"></i>
     </div>
 
@@ -322,6 +463,51 @@
     </nav>
 
     <script>
+        let socket = null;
+        let isConnected = false;
+        let currentRecipientId = null;
+        let currentUserId = null;
+
+        // Auto-conectar WebSocket usando la sesión del usuario guardada
+        window.onload = () => {
+            const rawUser = localStorage.getItem("spatial_user");
+            if (!rawUser) {
+                window.location.href = "/";
+                return;
+            }
+
+            try {
+                const userData = JSON.parse(rawUser);
+                currentUserId = userData.id || userData.user_id || userData.email || "usuario_spatial";
+            } catch (e) {
+                currentUserId = rawUser;
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/chat?user_id=${encodeURIComponent(currentUserId)}&token=dummy_token`;
+
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = () => {
+                isConnected = true;
+                document.getElementById('statusDot').classList.add('online');
+            };
+
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'new_message') {
+                    if (data.sender_id === currentRecipientId) {
+                        appendMessage(data.content, 'received');
+                    }
+                }
+            };
+
+            socket.onclose = () => {
+                isConnected = false;
+                document.getElementById('statusDot').classList.remove('online');
+            };
+        };
+
         // Control del menú desplegable superior
         const menuToggle = document.getElementById('menu-toggle');
         const dropdownMenu = document.getElementById('dropdownMenu');
@@ -353,7 +539,67 @@
             element.classList.add('active');
         }
 
-        // Función de cierre de sesión unificada
+        // Iniciar nuevo chat pidiendo el ID del destinatario
+        function promptNewChat() {
+            const recipient = prompt("Ingresa el ID del usuario con el que deseas chatear:");
+            if (recipient && recipient.trim() !== "") {
+                openChat(recipient.trim());
+            }
+        }
+
+        // Abrir ventana de chat con un usuario
+        function openChat(recipientId) {
+            currentRecipientId = recipientId;
+            document.getElementById('activeChatName').innerText = `Chat con: ${recipientId}`;
+            document.getElementById('chat-window').innerHTML = '';
+            document.getElementById('chat-room-view').style.display = 'flex';
+        }
+
+        function closeChatRoom() {
+            document.getElementById('chat-room-view').style.display = 'none';
+            currentRecipientId = null;
+        }
+
+        // Enviar mensaje a través del WebSocket
+        function sendMessage() {
+            if (!isConnected) {
+                alert("No estás conectado al servidor en tiempo real.");
+                return;
+            }
+
+            const input = document.getElementById('msgInput');
+            const content = input.value.trim();
+
+            if (!content || !currentRecipientId) return;
+
+            const payload = {
+                type: "send_message",
+                message_id: "msg_" + Date.now(),
+                recipient_id: currentRecipientId,
+                content: content,
+                media_url: null,
+                timestamp: new Date().toISOString()
+            };
+
+            socket.send(JSON.stringify(payload));
+            appendMessage(content, 'sent');
+            input.value = '';
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter') sendMessage();
+        }
+
+        function appendMessage(text, type) {
+            const box = document.getElementById('chat-window');
+            const div = document.createElement('div');
+            div.className = `msg-bubble ${type}`;
+            div.innerText = text;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // Cierre de sesión unificado
         function cerrarSesion() {
             localStorage.removeItem("spatial_user");
             window.location.href = "/";
