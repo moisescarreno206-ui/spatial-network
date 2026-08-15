@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, session, redirect, url_for
 from config import PORT, SECRET_KEY
 
 # Importación de módulos creados en la carpeta /modules
@@ -20,6 +20,9 @@ app.register_blueprint(settings_bp)
 
 @app.route('/')
 def index():
+    # Persistencia de sesión en el servidor: si ya hay una sesión activa, redirige al chat automáticamente
+    if 'user' in session:
+        return redirect('/chats')
     return render_template('index.html')
 
 if __name__ == '__main__':
