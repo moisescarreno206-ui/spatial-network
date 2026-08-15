@@ -470,7 +470,8 @@
         let currentUserId = null;
 
         window.onload = () => {
-            const rawUser = localStorage.getItem("spatial_user");
+            // Validación robusta de múltiples llaves para evitar bucles de cierre de sesión
+            const rawUser = localStorage.getItem("spatial_user") || localStorage.getItem("user") || localStorage.getItem("usuario");
             if (!rawUser) {
                 window.location.href = "/";
                 return;
@@ -478,10 +479,12 @@
 
             try {
                 const userData = JSON.parse(rawUser);
-                currentUserId = userData.id || userData.user_id || userData.email || "usuario_spatial";
+                currentUserId = userData.id || userData.user_id || userData.email || userData.full_name || "usuario_spatial";
             } catch (e) {
                 currentUserId = rawUser;
             }
+
+            currentUserId = String(currentUserId);
 
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/ws/chat?user_id=${encodeURIComponent(currentUserId)}&token=dummy_token`;
@@ -596,6 +599,8 @@
 
         function cerrarSesion() {
             localStorage.removeItem("spatial_user");
+            localStorage.removeItem("user");
+            localStorage.removeItem("usuario");
             window.location.href = "/";
         }
     </script>
