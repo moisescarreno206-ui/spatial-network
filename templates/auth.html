@@ -508,19 +508,25 @@
         let currentUserId = null;
 
         window.onload = () => {
+            // Verificar si existe una sesión activa real en localStorage
             let rawUser = localStorage.getItem("spatial_user") || localStorage.getItem("user") || localStorage.getItem("usuario");
             
             if (!rawUser) {
-                const defaultUser = { id: "5", full_name: "Moises", email: "esdrarderos@gmail.com" };
-                localStorage.setItem("spatial_user", JSON.stringify(defaultUser));
-                rawUser = localStorage.getItem("spatial_user");
+                // Si no hay sesión, redirigir al registro / inicio de sesión
+                window.location.href = "/";
+                return;
             }
 
             try {
                 const userData = JSON.parse(rawUser);
-                currentUserId = userData.id || userData.user_id || userData.email || userData.full_name || "5";
+                currentUserId = userData.id || userData.user_id || userData.email || userData.full_name;
             } catch (e) {
-                currentUserId = rawUser || "5";
+                currentUserId = rawUser;
+            }
+
+            if (!currentUserId) {
+                window.location.href = "/";
+                return;
             }
 
             currentUserId = String(currentUserId);
