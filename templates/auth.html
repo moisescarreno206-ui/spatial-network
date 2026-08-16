@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spatial Network - Chats</title>
+    <title>Spatial Network</title>
     <!-- FontAwesome para los iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* --- ESTILOS IDÉNTICOS A LA PANTALLA DE INICIO DE SESIÓN (auth.html) --- */
         :root {
             --bg-primary: #0d0f18;
             --bg-card: #16192b;
@@ -36,6 +35,84 @@
             overflow: hidden;
         }
 
+        /* --- PANTALLA DE INICIO DE SESIÓN --- */
+        #login-ui {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            background-color: var(--bg-primary);
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            padding: 40px 30px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+        }
+
+        .login-card h1 {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 24px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 12px;
+            color: var(--text-main);
+            margin-bottom: 20px;
+            outline: none;
+            font-size: 15px;
+        }
+
+        .login-input:focus {
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 10px rgba(192, 132, 252, 0.3);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            background: var(--accent-gradient);
+            color: white;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+            transition: opacity 0.2s;
+        }
+
+        .login-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* --- INTERFAZ PRINCIPAL DE CHAT (Oculta hasta iniciar sesión) --- */
+        #chat-ui {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+        }
+
         /* --- BARRA SUPERIOR --- */
         .app-header {
             background-color: var(--bg-card);
@@ -61,7 +138,6 @@
             -webkit-text-fill-color: transparent;
         }
 
-        /* Indicador de conexión en vivo */
         .status-indicator {
             width: 9px;
             height: 9px;
@@ -138,7 +214,6 @@
             flex-direction: column;
         }
 
-        /* Tarjeta contenedora principal estilo Login para la lista */
         .main-container-card {
             margin: 16px;
             background: var(--bg-card);
@@ -151,7 +226,6 @@
             flex-direction: column;
         }
 
-        /* Barra de búsqueda interna con diseño idéntico al input de login */
         .search-container {
             margin-bottom: 16px;
         }
@@ -188,7 +262,6 @@
             color: var(--text-muted);
         }
 
-        /* Lista de Chats */
         .chat-list {
             list-style: none;
             flex: 1;
@@ -325,7 +398,6 @@
             opacity: 0.9;
         }
 
-        /* --- BOTÓN FLOTANTE (FAB) CON DEGRADADO MORADO --- */
         .fab {
             position: fixed;
             bottom: 75px;
@@ -350,7 +422,6 @@
             opacity: 0.9;
         }
 
-        /* --- BARRA DE NAVEGACIÓN INFERIOR --- */
         .bottom-nav {
             background-color: var(--bg-card);
             display: flex;
@@ -394,112 +465,124 @@
 </head>
 <body>
 
-    <!-- BARRA SUPERIOR -->
-    <header class="app-header">
-        <div class="header-title-wrapper">
-            <span class="status-indicator" id="statusDot"></span>
-            <span class="app-title">SPATIAL NETWORK</span>
+    <!-- 1. PANTALLA DE LOGIN / REGISTRO -->
+    <div id="login-ui">
+        <div class="login-card">
+            <h1>Spatial Network</h1>
+            <input type="text" id="usernameInput" class="login-input" placeholder="Ingresa tu ID o usuario...">
+            <button class="login-btn" onclick="iniciarSesion()">Iniciar Sesión</button>
         </div>
-        <div class="header-actions">
-            <i class="fa-solid fa-camera"></i>
-            <i class="fa-solid fa-magnifying-glass" id="search-toggle"></i>
-            <i class="fa-solid fa-ellipsis-vertical" id="menu-toggle"></i>
-        </div>
+    </div>
 
-        <!-- Menú Desplegable -->
-        <div class="dropdown-menu" id="dropdownMenu">
-            <a class="dropdown-item">Nuevo grupo</a>
-            <a class="dropdown-item">Nueva difusión</a>
-            <a class="dropdown-item">Dispositivos vinculados</a>
-            <a class="dropdown-item">Destacados</a>
-            <div class="dropdown-item" onclick="cerrarSesion()">Ajustes / Salir</div>
-        </div>
-    </header>
-
-    <!-- CONTENIDO DE LAS PESTAÑAS -->
-    
-    <!-- Pestaña 1: CHATS -->
-    <div id="tab-chats" class="tab-content active">
-        <div class="main-container-card">
-            <div class="search-container">
-                <div class="search-box">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" placeholder="Busca un chat o inicia uno...">
-                </div>
+    <!-- 2. INTERFAZ PRINCIPAL DE CHATS -->
+    <div id="chat-ui">
+        <!-- BARRA SUPERIOR -->
+        <header class="app-header">
+            <div class="header-title-wrapper">
+                <span class="status-indicator" id="statusDot"></span>
+                <span class="app-title">SPATIAL NETWORK</span>
+            </div>
+            <div class="header-actions">
+                <i class="fa-solid fa-camera"></i>
+                <i class="fa-solid fa-magnifying-glass" id="search-toggle"></i>
+                <i class="fa-solid fa-ellipsis-vertical" id="menu-toggle"></i>
             </div>
 
-            <ul class="chat-list" id="chatListContainer">
-                <div class="empty-chats">
-                    <i class="fa-solid fa-comments"></i>
-                    <p>Aún no tienes chats activos.<br>Presiona el botón inferior para iniciar una conversación.</p>
+            <!-- Menú Desplegable -->
+            <div class="dropdown-menu" id="dropdownMenu">
+                <a class="dropdown-item">Nuevo grupo</a>
+                <a class="dropdown-item">Nueva difusión</a>
+                <a class="dropdown-item">Dispositivos vinculados</a>
+                <a class="dropdown-item">Destacados</a>
+                <div class="dropdown-item" onclick="cerrarSesion()">Cerrar Sesión / Salir</div>
+            </div>
+        </header>
+
+        <!-- CONTENIDO DE LAS PESTAÑAS -->
+        
+        <!-- Pestaña 1: CHATS -->
+        <div id="tab-chats" class="tab-content active">
+            <div class="main-container-card">
+                <div class="search-container">
+                    <div class="search-box">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" placeholder="Busca un chat o inicia uno...">
+                    </div>
                 </div>
-            </ul>
-        </div>
-    </div>
 
-    <!-- Pestaña 2: NOVEDADES -->
-    <div id="tab-novs" class="tab-content">
-        <div class="placeholder-tab">
-            <i class="fa-solid fa-circle-nodes fa-2x"></i>
-            <p>Sección de Novedades y Estados</p>
+                <ul class="chat-list" id="chatListContainer">
+                    <div class="empty-chats">
+                        <i class="fa-solid fa-comments"></i>
+                        <p>Aún no tienes chats activos.<br>Presiona el botón inferior para iniciar una conversación.</p>
+                    </div>
+                </ul>
+            </div>
         </div>
-    </div>
 
-    <!-- Pestaña 3: COMUNIDADES -->
-    <div id="tab-comms" class="tab-content">
-        <div class="placeholder-tab">
-            <i class="fa-solid fa-users-rectangle fa-2x"></i>
-            <p>Comunidades de Spatial Network</p>
+        <!-- Pestaña 2: NOVEDADES -->
+        <div id="tab-novs" class="tab-content">
+            <div class="placeholder-tab">
+                <i class="fa-solid fa-circle-nodes fa-2x"></i>
+                <p>Sección de Novedades y Estados</p>
+            </div>
         </div>
-    </div>
 
-    <!-- Pestaña 4: LLAMADAS -->
-    <div id="tab-calls" class="tab-content">
-        <div class="placeholder-tab">
-            <i class="fa-solid fa-phone fa-2x"></i>
-            <p>Historial de llamadas espaciales</p>
+        <!-- Pestaña 3: COMUNIDADES -->
+        <div id="tab-comms" class="tab-content">
+            <div class="placeholder-tab">
+                <i class="fa-solid fa-users-rectangle fa-2x"></i>
+                <p>Comunidades de Spatial Network</p>
+            </div>
         </div>
-    </div>
 
-    <!-- VISTA DE CHAT ACTIVO -->
-    <div id="chat-room-view">
-        <div class="chat-room-header">
-            <i class="fa-solid fa-arrow-left" onclick="closeChatRoom()"></i>
-            <span id="activeChatName" style="font-weight: 600;">Conversación</span>
+        <!-- Pestaña 4: LLAMADAS -->
+        <div id="tab-calls" class="tab-content">
+            <div class="placeholder-tab">
+                <i class="fa-solid fa-phone fa-2x"></i>
+                <p>Historial de llamadas espaciales</p>
+            </div>
         </div>
-        <div id="chat-window">
-            <!-- Los mensajes aparecerán aquí -->
-        </div>
-        <div class="input-bar">
-            <input type="text" id="msgInput" placeholder="Escribe un mensaje espacial..." onkeypress="handleEnter(event)">
-            <button class="btn-send" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
-        </div>
-    </div>
 
-    <!-- BOTÓN FLOTANTE (FAB) PARA NUEVO CHAT -->
-    <div class="fab" title="Iniciar chat" onclick="promptNewChat()">
-        <i class="fa-solid fa-comment-medical"></i>
-    </div>
+        <!-- VISTA DE CHAT ACTIVO -->
+        <div id="chat-room-view">
+            <div class="chat-room-header">
+                <i class="fa-solid fa-arrow-left" onclick="closeChatRoom()"></i>
+                <span id="activeChatName" style="font-weight: 600;">Conversación</span>
+            </div>
+            <div id="chat-window">
+                <!-- Los mensajes aparecerán aquí -->
+            </div>
+            <div class="input-bar">
+                <input type="text" id="msgInput" placeholder="Escribe un mensaje espacial..." onkeypress="handleEnter(event)">
+                <button class="btn-send" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
 
-    <!-- BARRA DE NAVEGACIÓN INFERIOR -->
-    <nav class="bottom-nav">
-        <button class="nav-item active" onclick="switchTab('chats', this)">
-            <i class="fa-solid fa-comment-dots"></i>
-            <span>Chats</span>
-        </button>
-        <button class="nav-item" onclick="switchTab('novs', this)">
-            <i class="fa-solid fa-circle-notch"></i>
-            <span>Novedades</span>
-        </button>
-        <button class="nav-item" onclick="switchTab('comms', this)">
-            <i class="fa-solid fa-users"></i>
-            <span>Comunidades</span>
-        </button>
-        <button class="nav-item" onclick="switchTab('calls', this)">
-            <i class="fa-solid fa-phone"></i>
-            <span>Llamadas</span>
-        </button>
-    </nav>
+        <!-- BOTÓN FLOTANTE (FAB) PARA NUEVO CHAT -->
+        <div class="fab" title="Iniciar chat" onclick="promptNewChat()">
+            <i class="fa-solid fa-comment-medical"></i>
+        </div>
+
+        <!-- BARRA DE NAVEGACIÓN INFERIOR -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" onclick="switchTab('chats', this)">
+                <i class="fa-solid fa-comment-dots"></i>
+                <span>Chats</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('novs', this)">
+                <i class="fa-solid fa-circle-notch"></i>
+                <span>Novedades</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('comms', this)">
+                <i class="fa-solid fa-users"></i>
+                <span>Comunidades</span>
+            </button>
+            <button class="nav-item" onclick="switchTab('calls', this)">
+                <i class="fa-solid fa-phone"></i>
+                <span>Llamadas</span>
+            </button>
+        </nav>
+    </div>
 
     <script>
         let socket = null;
@@ -507,13 +590,14 @@
         let currentRecipientId = null;
         let currentUserId = null;
 
+        // Comprobar la sesión al cargar la página
         window.onload = () => {
-            // Verificar si existe una sesión activa real en localStorage
             let rawUser = localStorage.getItem("spatial_user") || localStorage.getItem("user") || localStorage.getItem("usuario");
             
             if (!rawUser) {
-                // Si no hay sesión, redirigir al registro / inicio de sesión
-                window.location.href = "/";
+                // Mostrar pantalla de inicio de sesión si no hay datos
+                document.getElementById('login-ui').style.display = 'flex';
+                document.getElementById('chat-ui').style.display = 'none';
                 return;
             }
 
@@ -525,12 +609,18 @@
             }
 
             if (!currentUserId) {
-                window.location.href = "/";
+                document.getElementById('login-ui').style.display = 'flex';
+                document.getElementById('chat-ui').style.display = 'none';
                 return;
             }
 
+            // Ocultar login y mostrar chat
+            document.getElementById('login-ui').style.display = 'none';
+            document.getElementById('chat-ui').style.display = 'flex';
+
             currentUserId = String(currentUserId);
 
+            // Inicializar WebSocket con el usuario activo
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/ws/chat?user_id=${encodeURIComponent(currentUserId)}&token=dummy_token`;
 
@@ -556,6 +646,24 @@
             };
         };
 
+        function iniciarSesion() {
+            const inputVal = document.getElementById('usernameInput').value.trim();
+            if (inputVal !== "") {
+                localStorage.setItem("spatial_user", JSON.stringify({ id: inputVal, name: inputVal }));
+                window.location.reload();
+            } else {
+                alert("Por favor ingresa un nombre de usuario o ID válido.");
+            }
+        }
+
+        function cerrarSesion() {
+            localStorage.removeItem("spatial_user");
+            localStorage.removeItem("user");
+            localStorage.removeItem("usuario");
+            window.location.reload();
+        }
+
+        // Menú desplegable superior
         const menuToggle = document.getElementById('menu-toggle');
         const dropdownMenu = document.getElementById('dropdownMenu');
 
@@ -568,6 +676,7 @@
             dropdownMenu.classList.remove('show');
         });
 
+        // Cambio de pestañas inferiores
         function switchTab(tabName, element) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
@@ -585,6 +694,7 @@
             element.classList.add('active');
         }
 
+        // Gestión de chats activos y WebSocket
         function promptNewChat() {
             const recipient = prompt("Ingresa el ID del usuario con el que deseas chatear:");
             if (recipient && recipient.trim() !== "") {
@@ -640,13 +750,6 @@
             div.innerText = text;
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
-        }
-
-        function cerrarSesion() {
-            localStorage.removeItem("spatial_user");
-            localStorage.removeItem("user");
-            localStorage.removeItem("usuario");
-            window.location.href = "/";
         }
     </script>
 </body>
