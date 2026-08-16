@@ -7,6 +7,7 @@
     <!-- FontAwesome para los iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* --- PALETA DE COLORES (Modifica aquí para igualar el estilo del inicio) --- */
         :root {
             --bg-primary: #0b1320;
             --bg-secondary: #151e32;
@@ -470,10 +471,9 @@
         let currentUserId = null;
 
         window.onload = () => {
-            // Busca la sesión en múltiples llaves del localStorage
+            // Busca la sesión en múltiples llaves del localStorage con respaldo automático para ID 5
             let rawUser = localStorage.getItem("spatial_user") || localStorage.getItem("user") || localStorage.getItem("usuario");
             
-            // Si no hay datos de sesión guardados, crea un respaldo automático con el ID 5 para evitar el bucle
             if (!rawUser) {
                 const defaultUser = { id: "5", full_name: "Moises", email: "esdrarderos@gmail.com" };
                 localStorage.setItem("spatial_user", JSON.stringify(defaultUser));
@@ -609,4 +609,3 @@
     </script>
 </body>
 </html>
-
