@@ -1,4 +1,13 @@
-<!DOCTYPE html>
+from flask import Blueprint, render_template_string, session, redirect
+
+chats_bp = Blueprint('chats', __name__)
+
+@chats_bp.route('/chats')
+def chats_view():
+    if 'user' not in session:
+        return redirect('/')
+    
+    html_content = """<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -297,13 +306,11 @@
 
     <script>
         function switchTab(tabName, element) {
-            // Ocultar todas las vistas principales y la sala de chat activa
             document.querySelectorAll('.view').forEach(v => {
                 v.classList.remove('active');
             });
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-            // Activar la vista correspondiente
             const targetView = document.getElementById(`view-${tabName}`);
             if (targetView) {
                 targetView.classList.add('active');
@@ -349,4 +356,7 @@
         }
     </script>
 </body>
-</html>
+</html>"""
+    
+    return render_template_string(html_content)
+    
