@@ -1,0 +1,167 @@
+<!-- Archivo: templates/novedades.html -->
+<div class="main-container-card">
+    <h3 style="font-size: 17px; font-weight: 700; margin-bottom: 5px;">Estados</h3>
+    
+    <!-- Mi Estado -->
+    <div class="status-card-row" onclick="publicarEstadoNovedades()">
+        <div class="status-avatar-wrapper">
+            <div class="status-ring" style="background: var(--input-border);">
+                <div class="status-ring-inner">
+                    <i class="fa-solid fa-user" style="font-size: 20px; color: var(--text-muted);"></i>
+                </div>
+            </div>
+            <div class="my-status-badge">
+                <i class="fa-solid fa-plus"></i>
+            </div>
+        </div>
+        <div class="status-info">
+            <h4>Mi estado</h4>
+            <p id="myStatusSubtitle">Toca para añadir una actualización</p>
+        </div>
+    </div>
+
+    <div class="section-heading">Recientes</div>
+
+    <!-- Lista de estados recientes -->
+    <div class="novedades-wrapper">
+        <div class="status-card-row" onclick="verEstadoNovedades('Sistema Spatial')">
+            <div class="status-avatar-wrapper">
+                <div class="status-ring">
+                    <div class="status-ring-inner">
+                        <i class="fa-solid fa-robot" style="color: var(--accent-purple);"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="status-info">
+                <h4>Sistema Spatial</h4>
+                <p>Hoy, 08:30 a. m.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .novedades-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .section-heading {
+        font-size: 12px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin: 15px 0 10px 0;
+    }
+    .status-card-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 10px 0;
+        cursor: pointer;
+        border-radius: 12px;
+        transition: background 0.2s;
+    }
+    .status-card-row:hover {
+        background-color: rgba(192, 132, 252, 0.05);
+    }
+    .status-avatar-wrapper {
+        position: relative;
+        width: 52px;
+        height: 52px;
+    }
+    .status-ring {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: var(--accent-gradient);
+        padding: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .status-ring-inner {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: var(--input-bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        color: var(--accent-purple);
+    }
+    .my-status-badge {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        background: var(--accent-gradient);
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        color: white;
+        border: 2px solid var(--bg-card);
+    }
+    .status-info h4 {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-main);
+    }
+    .status-info p {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+</style>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const currentUserId = getActiveUserIdNovedades();
+        if (currentUserId) {
+            let savedStatus = localStorage.getItem("my_status_" + currentUserId);
+            if (savedStatus) {
+                const subtitleEl = document.getElementById('myStatusSubtitle');
+                if (subtitleEl) subtitleEl.innerText = savedStatus;
+            }
+        }
+    });
+
+    function getActiveUserIdNovedades() {
+        let rawUser = localStorage.getItem("spatial_user") || localStorage.getItem("user") || localStorage.getItem("usuario");
+        if (!rawUser) return null;
+        try {
+            const userData = JSON.parse(rawUser);
+            return String(userData.id || userData.user_id || userData.email || userData.full_name || rawUser);
+        } catch (e) {
+            return String(rawUser);
+        }
+    }
+
+    function publicarEstadoNovedades() {
+        const currentUserId = getActiveUserIdNovedades();
+        if (!currentUserId) {
+            alert("Debes iniciar sesión para publicar un estado.");
+            return;
+        }
+
+        const nuevoEstado = prompt("¿Qué estás pensando o qué estado deseas publicar?");
+        if (nuevoEstado && nuevoEstado.trim() !== "") {
+            const estadoLimpio = nuevoEstado.trim();
+            const subtitleEl = document.getElementById('myStatusSubtitle');
+            if (subtitleEl) {
+                subtitleEl.innerText = estadoLimpio;
+            }
+            localStorage.setItem("my_status_" + currentUserId, estadoLimpio);
+            alert("¡Estado publicado con éxito!");
+        }
+    }
+
+    function verEstadoNovedades(nombreContacto) {
+        alert(`Viendo la actualización de estado de: ${nombreContacto}`);
+    }
+</script>
+
