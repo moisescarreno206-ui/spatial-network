@@ -43,6 +43,7 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--border-color);
+            z-index: 30;
         }
 
         .header-title-wrapper {
@@ -120,17 +121,29 @@
             color: var(--accent-green);
         }
 
-        /* --- CONTENEDOR DE PESTAÑAS --- */
-        .tab-content {
+        /* --- CONTENEDOR PRINCIPAL DE PESTAÑAS --- */
+        .main-content-area {
             flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tab-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             overflow-y: auto;
             display: none;
-            position: relative;
+            flex-direction: column;
+            padding-bottom: 80px; /* Espacio para que la barra inferior no tape contenido */
         }
 
         .tab-content.active {
             display: flex;
-            flex-direction: column;
         }
 
         /* Barra de búsqueda interna */
@@ -200,7 +213,7 @@
             top: 0;
             left: 0;
             width: 100%;
-            z-index: 20;
+            z-index: 40;
         }
 
         .chat-room-header {
@@ -308,7 +321,7 @@
             box-shadow: 0 4px 10px rgba(34, 197, 94, 0.3);
             cursor: pointer;
             transition: transform 0.2s;
-            z-index: 10;
+            z-index: 20;
         }
 
         .fab:hover {
@@ -316,13 +329,18 @@
             background-color: var(--accent-hover);
         }
 
-        /* --- BARRA DE NAVEGACIÓN INFERIOR --- */
+        /* --- BARRA DE NAVEGACIÓN INFERIOR (FIJA) --- */
         .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
             background-color: var(--bg-secondary);
             display: flex;
             justify-content: space-around;
             padding: 10px 0;
             border-top: 1px solid var(--border-color);
+            z-index: 50;
         }
 
         .nav-item {
@@ -336,6 +354,7 @@
             cursor: pointer;
             font-size: 11px;
             flex: 1;
+            transition: color 0.2s;
         }
 
         .nav-item i {
@@ -381,59 +400,62 @@
         </div>
     </header>
 
-    <!-- CONTENIDO DE LAS PESTAÑAS -->
-    
-    <!-- Pestaña 1: CHATS -->
-    <div id="tab-chats" class="tab-content active">
-        <div class="search-container">
-            <div class="search-box">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" placeholder="Busca un chat o inicia uno...">
+    <!-- ÁREA PRINCIPAL DE CONTENIDO CON PESTAÑAS -->
+    <div class="main-content-area">
+        
+        <!-- Pestaña 1: CHATS -->
+        <div id="tab-chats" class="tab-content active">
+            <div class="search-container">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" placeholder="Busca un chat o inicia uno...">
+                </div>
+            </div>
+
+            <ul class="chat-list" id="chatListContainer">
+                <div class="empty-chats">
+                    <i class="fa-solid fa-comments"></i>
+                    <p>Aún no tienes chats activos.<br>Presiona el botón inferior para iniciar una conversación.</p>
+                </div>
+            </ul>
+        </div>
+
+        <!-- Pestaña 2: NOVEDADES (Conectado de forma limpia mediante Jinja2) -->
+        <div id="tab-novs" class="tab-content">
+            {% include 'novedades.html' %}
+        </div>
+
+        <!-- Pestaña 3: COMUNIDADES -->
+        <div id="tab-comms" class="tab-content">
+            <div class="placeholder-tab">
+                <i class="fa-solid fa-users-rectangle fa-2x"></i>
+                <p>Comunidades de Spatial Network</p>
             </div>
         </div>
 
-        <ul class="chat-list" id="chatListContainer">
-            <div class="empty-chats">
-                <i class="fa-solid fa-comments"></i>
-                <p>Aún no tienes chats activos.<br>Presiona el botón inferior para iniciar una conversación.</p>
+        <!-- Pestaña 4: LLAMADAS -->
+        <div id="tab-calls" class="tab-content">
+            <div class="placeholder-tab">
+                <i class="fa-solid fa-phone fa-2x"></i>
+                <p>Historial de llamadas espaciales</p>
             </div>
-        </ul>
-    </div>
+        </div>
 
-    <!-- Pestaña 2: NOVEDADES (Conectado de forma limpia mediante Jinja2) -->
-    <div id="tab-novs" class="tab-content">
-        {% include 'novedades.html' %}
-    </div>
+        <!-- VISTA DE CHAT ACTIVO -->
+        <div id="chat-room-view">
+            <div class="chat-room-header">
+                <i class="fa-solid fa-arrow-left" onclick="closeChatRoom()"></i>
+                <span id="activeChatName" style="font-weight: 600;">Conversación</span>
+            </div>
+            <div id="chat-window">
+                <!-- Los mensajes aparecerán aquí -->
+            </div>
+            <div class="input-bar">
+                <input type="text" id="msgInput" placeholder="Escribe un mensaje espacial..." onkeypress="handleEnter(event)">
+                <button class="btn-send" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
 
-    <!-- Pestaña 3: COMUNIDADES -->
-    <div id="tab-comms" class="tab-content">
-        <div class="placeholder-tab">
-            <i class="fa-solid fa-users-rectangle fa-2x"></i>
-            <p>Comunidades de Spatial Network</p>
-        </div>
-    </div>
-
-    <!-- Pestaña 4: LLAMADAS -->
-    <div id="tab-calls" class="tab-content">
-        <div class="placeholder-tab">
-            <i class="fa-solid fa-phone fa-2x"></i>
-            <p>Historial de llamadas espaciales</p>
-        </div>
-    </div>
-
-    <!-- VISTA DE CHAT ACTIVO -->
-    <div id="chat-room-view">
-        <div class="chat-room-header">
-            <i class="fa-solid fa-arrow-left" onclick="closeChatRoom()"></i>
-            <span id="activeChatName" style="font-weight: 600;">Conversación</span>
-        </div>
-        <div id="chat-window">
-            <!-- Los mensajes aparecerán aquí -->
-        </div>
-        <div class="input-bar">
-            <input type="text" id="msgInput" placeholder="Escribe un mensaje espacial..." onkeypress="handleEnter(event)">
-            <button class="btn-send" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
-        </div>
     </div>
 
     <!-- BOTÓN FLOTANTE (FAB) PARA NUEVO CHAT -->
@@ -493,7 +515,8 @@
 
             socket.onopen = () => {
                 isConnected = true;
-                document.getElementById('statusDot').classList.add('online');
+                const dot = document.getElementById('statusDot');
+                if (dot) dot.classList.add('online');
             };
 
             socket.onmessage = (event) => {
@@ -507,20 +530,23 @@
 
             socket.onclose = () => {
                 isConnected = false;
-                document.getElementById('statusDot').classList.remove('online');
+                const dot = document.getElementById('statusDot');
+                if (dot) dot.classList.remove('online');
             };
         };
 
         const menuToggle = document.getElementById('menu-toggle');
         const dropdownMenu = document.getElementById('dropdownMenu');
 
-        menuToggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdownMenu.classList.toggle('show');
-        });
+        if (menuToggle && dropdownMenu) {
+            menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdownMenu.classList.toggle('show');
+            });
+        }
 
         window.addEventListener('click', () => {
-            dropdownMenu.classList.remove('show');
+            if (dropdownMenu) dropdownMenu.classList.remove('show');
         });
 
         function switchTab(tabName, element) {
@@ -603,7 +629,7 @@
             localStorage.removeItem("usuario");
             window.location.href = "/";
         }
-    </script>
-</body>
+       </script>
+    </body>
     </html>
     
