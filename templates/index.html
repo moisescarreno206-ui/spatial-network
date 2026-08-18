@@ -400,12 +400,9 @@
         </ul>
     </div>
 
-    <!-- Pestaña 2: NOVEDADES -->
+    <!-- Pestaña 2: NOVEDADES (Conectado de forma limpia mediante Jinja2) -->
     <div id="tab-novs" class="tab-content">
-        <div class="placeholder-tab">
-            <i class="fa-solid fa-circle-nodes fa-2x"></i>
-            <p>Sección de Novedades y Estados</p>
-        </div>
+        {% include 'novedades.html' %}
     </div>
 
     <!-- Pestaña 3: COMUNIDADES -->
@@ -608,4 +605,5 @@
         }
     </script>
 </body>
-</html>
+    </html>
+    
