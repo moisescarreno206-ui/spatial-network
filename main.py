@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from virals import router as virals_router
 
 # 1. Importación de Módulos compatibles con FastAPI
-from modules.auth import router as auth_router
+from modules.chats import chats_bp as chats_router
 from modules.chats import router as chats_router  # Router de chats actualizado
 
 app = FastAPI(title="Spatial Network - Engine Core")
