@@ -35,7 +35,7 @@
             overflow: hidden;
         }
 
-        /* --- PANTALLA DE INICIO DE SESIÓN --- */
+        /* --- PANTALLA DE INICIO DE SESIÓN Y REGISTRO --- */
         #login-ui {
             display: flex;
             align-items: center;
@@ -468,9 +468,15 @@
     <!-- 1. PANTALLA DE LOGIN / REGISTRO -->
     <div id="login-ui">
         <div class="login-card">
-            <h1>Spatial Network</h1>
+            <h1 id="auth-title">Iniciar Sesión</h1>
             <input type="text" id="usernameInput" class="login-input" placeholder="Ingresa tu ID o usuario...">
-            <button class="login-btn" onclick="iniciarSesion()">Iniciar Sesión</button>
+            <button class="login-btn" id="auth-main-btn" onclick="handleAuth()">Iniciar Sesión</button>
+            <p style="margin-top: 20px; color: var(--text-muted); font-size: 14px;">
+                <span id="auth-text">¿No tienes cuenta?</span> 
+                <a href="#" style="color: var(--accent-purple); text-decoration: none;" onclick="toggleAuthMode(event)">
+                    <span id="auth-toggle-text">Regístrate</span>
+                </a>
+            </p>
         </div>
     </div>
 
@@ -589,6 +595,7 @@
         let isConnected = false;
         let currentRecipientId = null;
         let currentUserId = null;
+        let isLoginMode = true;
 
         // Comprobar la sesión al cargar la página
         window.onload = () => {
@@ -646,13 +653,41 @@
             };
         };
 
-        function iniciarSesion() {
+        function toggleAuthMode(event) {
+            event.preventDefault();
+            isLoginMode = !isLoginMode;
+            
+            document.getElementById('auth-title').innerText = isLoginMode ? "Iniciar Sesión" : "Crear Cuenta";
+            document.getElementById('auth-main-btn').innerText = isLoginMode ? "Iniciar Sesión" : "Registrarse";
+            document.getElementById('auth-text').innerText = isLoginMode ? "¿No tienes cuenta?" : "¿Ya tienes cuenta?";
+            document.getElementById('auth-toggle-text').innerText = isLoginMode ? "Regístrate" : "Inicia Sesión";
+        }
+
+        function handleAuth() {
             const inputVal = document.getElementById('usernameInput').value.trim();
-            if (inputVal !== "") {
-                localStorage.setItem("spatial_user", JSON.stringify({ id: inputVal, name: inputVal }));
-                window.location.reload();
-            } else {
+            if (!inputVal) {
                 alert("Por favor ingresa un nombre de usuario o ID válido.");
+                return;
+            }
+
+            let users = JSON.parse(localStorage.getItem("spatial_users") || "{}");
+
+            if (isLoginMode) {
+                if (users[inputVal] || inputVal) { // Permite acceso si ya existe o si se usa el flujo simulado directo
+                    localStorage.setItem("spatial_user", JSON.stringify({ id: inputVal, name: inputVal }));
+                    window.location.reload();
+                } else {
+                    alert("Usuario no encontrado. Regístrate primero.");
+                }
+            } else {
+                if (users[inputVal]) {
+                    alert("Este usuario ya existe.");
+                } else {
+                    users[inputVal] = { id: inputVal, created_at: new Date().toISOString() };
+                    localStorage.setItem("spatial_users", JSON.stringify(users));
+                    alert("Registro exitoso. Ahora puedes iniciar sesión.");
+                    toggleAuthMode({ preventDefault: () => {} });
+                }
             }
         }
 
