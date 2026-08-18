@@ -99,7 +99,7 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
             display: none;
             flex-direction: column;
-            width: 180px;
+            width: 210px;
             z-index: 100;
         }
 
@@ -114,6 +114,9 @@
             font-size: 14px;
             border-bottom: 1px solid rgba(255,255,255,0.05);
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .dropdown-item:hover {
@@ -390,13 +393,14 @@
             <i class="fa-solid fa-ellipsis-vertical" id="menu-toggle"></i>
         </div>
 
-        <!-- Menú Desplegable -->
+        <!-- Menú Desplegable con opciones completas + Actualizador inteligente -->
         <div class="dropdown-menu" id="dropdownMenu">
-            <a class="dropdown-item">Nuevo grupo</a>
-            <a class="dropdown-item">Nueva difusión</a>
-            <a class="dropdown-item">Dispositivos vinculados</a>
-            <a class="dropdown-item">Destacados</a>
-            <div class="dropdown-item" onclick="cerrarSesion()">Ajustes / Salir</div>
+            <a class="dropdown-item"><i class="fa-solid fa-user-group"></i> Nuevo grupo</a>
+            <a class="dropdown-item"><i class="fa-solid fa-bullhorn"></i> Nueva difusión</a>
+            <a class="dropdown-item"><i class="fa-solid fa-laptop"></i> Dispositivos vinculados</a>
+            <a class="dropdown-item"><i class="fa-solid fa-star"></i> Destacados</a>
+            <a class="dropdown-item" onclick="forzarActualizacion()"><i class="fa-solid fa-rotate"></i> Actualizar app</a>
+            <div class="dropdown-item" onclick="cerrarSesion()"><i class="fa-solid fa-right-from-bracket"></i> Salir</div>
         </div>
     </header>
 
@@ -420,7 +424,7 @@
             </ul>
         </div>
 
-        <!-- Pestaña 2: NOVEDADES (Conectado de forma limpia mediante Jinja2) -->
+        <!-- Pestaña 2: NOVEDADES (Conectado mediante Jinja2) -->
         <div id="tab-novs" class="tab-content">
             {% include 'novedades.html' %}
         </div>
@@ -533,6 +537,9 @@
                 const dot = document.getElementById('statusDot');
                 if (dot) dot.classList.remove('online');
             };
+
+            // Iniciar detector automático de actualizaciones del servidor
+            iniciarDetectorActualizaciones();
         };
 
         const menuToggle = document.getElementById('menu-toggle');
@@ -629,7 +636,40 @@
             localStorage.removeItem("usuario");
             window.location.href = "/";
         }
-       </script>
-    </body>
-    </html>
-    
+
+        // --- FUNCIONES ANTICACHÉ Y ACTUALIZACIÓN AUTOMÁTICA ---
+        async function forzarActualizacion() {
+            // Eliminar Service Workers si estuvieran registrados
+            if ('serviceWorker' in navigator) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                for (let reg of regs) { await reg.unregister(); }
+            }
+            // Borrar cachés internas del navegador
+            if ('caches' in window) {
+                const names = await caches.keys();
+                for (let name of names) { await caches.delete(name); }
+            }
+            // Recargar ignorando por completo la caché local
+            window.location.reload(true);
+        }
+
+        function iniciarDetectorActualizaciones() {
+            let initialHeader = null;
+            setInterval(async () => {
+                try {
+                    const res = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+                    const currentHeader = res.headers.get('last-modified') || res.headers.get('etag');
+                    if (!initialHeader) {
+                        initialHeader = currentHeader;
+                    } else if (currentHeader && initialHeader !== currentHeader) {
+                        console.log("Nueva versión detectada en el servidor. Actualizando...");
+                        forzarActualizacion();
+                    }
+                } catch (err) {
+                    // Ignorar errores de red temporales
+                }
+            }, 25000); // Comprueba cada 25 segundos si Render subió cambios nuevos
+        }
+    </script>
+</body>
+</html>
