@@ -52,11 +52,13 @@
 
         .login-card {
             background: var(--bg-card);
-            padding: 40px 30px;
+            padding: 30px 20px;
             border-radius: 20px;
             border: 1px solid var(--border-color);
             width: 100%;
             max-width: 400px;
+            max-height: 90vh;
+            overflow-y: auto;
             text-align: center;
             box-shadow: 0 15px 35px rgba(0,0,0,0.6);
         }
@@ -64,7 +66,7 @@
         .login-card h1 {
             font-size: 24px;
             font-weight: 800;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             background: var(--accent-gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -72,14 +74,14 @@
 
         .login-input {
             width: 100%;
-            padding: 14px 16px;
+            padding: 12px 16px;
             background: var(--input-bg);
             border: 1px solid var(--input-border);
             border-radius: 12px;
             color: var(--text-main);
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             outline: none;
-            font-size: 15px;
+            font-size: 14px;
         }
 
         .login-input:focus {
@@ -469,9 +471,21 @@
     <div id="login-ui">
         <div class="login-card">
             <h1 id="auth-title">Iniciar Sesión</h1>
+            
             <input type="text" id="usernameInput" class="login-input" placeholder="Ingresa tu ID o usuario...">
+            
+            <!-- CAMPOS EXCLUSIVOS PARA REGISTRO -->
+            <div id="register-fields" style="display: none;">
+                <input type="text" id="regNombre" class="login-input" placeholder="Nombre...">
+                <input type="text" id="regApellido" class="login-input" placeholder="Apellidos...">
+                <input type="date" id="regDob" class="login-input" title="Fecha de nacimiento">
+                <input type="email" id="regEmail" class="login-input" placeholder="Correo electrónico...">
+                <input type="tel" id="regPhone" class="login-input" placeholder="Número de teléfono...">
+            </div>
+
             <button class="login-btn" id="auth-main-btn" onclick="handleAuth()">Iniciar Sesión</button>
-            <p style="margin-top: 20px; color: var(--text-muted); font-size: 14px;">
+            
+            <p style="margin-top: 15px; color: var(--text-muted); font-size: 14px;">
                 <span id="auth-text">¿No tienes cuenta?</span> 
                 <a href="#" style="color: var(--accent-purple); text-decoration: none;" onclick="toggleAuthMode(event)">
                     <span id="auth-toggle-text">Regístrate</span>
@@ -564,7 +578,7 @@
             </div>
         </div>
 
-        <!-- BOTÓN FLOTANTE (FAB) PARA NUEVO CHAT -->
+         <!-- BOTÓN FLOTANTE (FAB) PARA NUEVO CHAT -->
         <div class="fab" title="Iniciar chat" onclick="promptNewChat()">
             <i class="fa-solid fa-comment-medical"></i>
         </div>
@@ -621,7 +635,7 @@
                 return;
             }
 
-            // Ocultar login y mostrar chat
+             // Ocultar login y mostrar chat
             document.getElementById('login-ui').style.display = 'none';
             document.getElementById('chat-ui').style.display = 'flex';
 
@@ -661,6 +675,9 @@
             document.getElementById('auth-main-btn').innerText = isLoginMode ? "Iniciar Sesión" : "Registrarse";
             document.getElementById('auth-text').innerText = isLoginMode ? "¿No tienes cuenta?" : "¿Ya tienes cuenta?";
             document.getElementById('auth-toggle-text').innerText = isLoginMode ? "Regístrate" : "Inicia Sesión";
+            
+            // Mostrar u ocultar cuadros adicionales de registro
+            document.getElementById('register-fields').style.display = isLoginMode ? 'none' : 'block';
         }
 
         function handleAuth() {
@@ -673,19 +690,38 @@
             let users = JSON.parse(localStorage.getItem("spatial_users") || "{}");
 
             if (isLoginMode) {
-                if (users[inputVal] || inputVal) { // Permite acceso si ya existe o si se usa el flujo simulado directo
+                if (users[inputVal] || inputVal) { 
                     localStorage.setItem("spatial_user", JSON.stringify({ id: inputVal, name: inputVal }));
                     window.location.reload();
                 } else {
                     alert("Usuario no encontrado. Regístrate primero.");
                 }
             } else {
+                const nombre = document.getElementById('regNombre').value.trim();
+                const apellido = document.getElementById('regApellido').value.trim();
+                const dob = document.getElementById('regDob').value;
+                const email = document.getElementById('regEmail').value.trim();
+                const phone = document.getElementById('regPhone').value.trim();
+
+                if (!nombre || !apellido || !dob || !email || !phone) {
+                    alert("Por favor completa todos los campos de registro.");
+                    return;
+                }
+
                 if (users[inputVal]) {
-                    alert("Este usuario ya existe.");
+                    alert("Este usuario o ID ya existe.");
                 } else {
-                    users[inputVal] = { id: inputVal, created_at: new Date().toISOString() };
+                    users[inputVal] = { 
+                        id: inputVal, 
+                        nombre: nombre,
+                        apellido: apellido,
+                        dob: dob,
+                        email: email,
+                        phone: phone,
+                        created_at: new Date().toISOString() 
+                    };
                     localStorage.setItem("spatial_users", JSON.stringify(users));
-                    alert("Registro exitoso. Ahora puedes iniciar sesión.");
+                    alert("¡Registro exitoso! Ahora puedes iniciar sesión.");
                     toggleAuthMode({ preventDefault: () => {} });
                 }
             }
