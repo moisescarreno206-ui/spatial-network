@@ -1,11 +1,13 @@
-from flask import Blueprint, render_template_string, session, redirect
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 
-chats_bp = Blueprint('chats', __name__)
+chats_bp = APIRouter()
 
-@chats_bp.route('/chats')
-def chats_view():
-    if 'user' not in session:
-        return redirect('/')
+@chats_bp.get("/chats", response_class=HTMLResponse)
+async def chats_view(request: Request):
+    # Opcional: si manejas sesiones, verifica aquí; si no, quítalo temporalmente para probar
+    # if "user" not in request.session:
+    #     return RedirectResponse(url="/", status_code=303)
     
     html_content = """<!DOCTYPE html>
 <html lang="es">
@@ -184,7 +186,10 @@ def chats_view():
 
     <!-- ================= VIEW 2: NOVEDADES ================= -->
     <div id="view-novedades" class="view">
-        {% include 'novedades.html' %}
+        <div class="placeholder-content">
+            <span>⚡</span>
+            <p>Novedades de Spatial Network</p>
+        </div>
     </div>
 
 
@@ -358,5 +363,5 @@ def chats_view():
 </body>
 </html>"""
     
-    return render_template_string(html_content)
+    return HTMLResponse(content=html_content)
     
