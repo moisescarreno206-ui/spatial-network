@@ -1,58 +1,121 @@
 <!-- Archivo: templates/novedades.html -->
-<div class="main-container-card">
-    <h3 style="font-size: 17px; font-weight: 700; margin-bottom: 5px;">Estados</h3>
-    
-    <!-- Mi Estado -->
-    <div class="status-card-row" onclick="publicarEstadoNovedades()">
-        <div class="status-avatar-wrapper">
-            <div class="status-ring" style="background: var(--input-border);">
-                <div class="status-ring-inner">
-                    <i class="fa-solid fa-user" style="font-size: 20px; color: var(--text-muted);"></i>
-                </div>
-            </div>
-            <div class="my-status-badge">
-                <i class="fa-solid fa-plus"></i>
-            </div>
-        </div>
-        <div class="status-info">
-            <h4>Mi estado</h4>
-            <p id="myStatusSubtitle">Toca para añadir una actualización</p>
-        </div>
-    </div>
-
-    <div class="section-heading">Recientes</div>
-
-    <!-- Lista de estados recientes -->
-    <div class="novedades-wrapper">
-        <div class="status-card-row" onclick="verEstadoNovedades('Sistema Spatial')">
+<div class="novedades-container">
+    <div class="main-container-card" style="padding: 16px;">
+        <h3 style="font-size: 19px; font-weight: 700; margin-bottom: 15px; color: var(--text-main);">Estados</h3>
+        
+        <!-- Mi Estado (Añadir estado) -->
+        <div class="status-card-row" onclick="abrirModalEstado()">
             <div class="status-avatar-wrapper">
-                <div class="status-ring">
-                    <div class="status-ring-inner">
-                        <i class="fa-solid fa-robot" style="color: var(--accent-purple);"></i>
+                <div class="status-ring" style="background: var(--accent-green);">
+                    <div class="status-ring-inner" style="background: var(--bg-secondary);">
+                        <i class="fa-solid fa-user" style="font-size: 20px; color: var(--text-muted);"></i>
                     </div>
+                </div>
+                <div class="my-status-badge">
+                    <i class="fa-solid fa-plus"></i>
                 </div>
             </div>
             <div class="status-info">
-                <h4>Sistema Spatial</h4>
-                <p>Hoy, 08:30 a. m.</p>
+                <h4 style="color: var(--text-main);">Mi estado</h4>
+                <p id="myStatusSubtitle">Desaparece después de 24 horas.</p>
+            </div>
+        </div>
+
+        <div class="section-heading">Recientes</div>
+
+        <!-- Lista de estados recientes (Vacía por ahora ya que no hay usuarios) -->
+        <div class="novedades-wrapper" id="listaRecientesNovedades">
+            <div class="empty-novedades">
+                <i class="fa-solid fa-circle-notch" style="font-size: 28px; color: var(--border-color); margin-bottom: 8px;"></i>
+                <p>No hay actualizaciones recientes de contactos.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTONES FLOTANTES DE ACCIÓN RÁPIDA (Estilo WhatsApp / Screenshots) -->
+    <div class="novedades-fab-container">
+        <button class="fab-secondary" onclick="crearEstadoTexto()" title="Crear estado de texto">
+            <i class="fa-solid fa-pen"></i>
+        </button>
+        <button class="fab-primary" onclick="abrirSelectorMedios()" title="Subir foto, video o archivo (Máx 100)">
+            <i class="fa-solid fa-camera"></i>
+        </button>
+    </div>
+
+    <!-- INPUT OCULTO PARA SELECCIONAR HASTA 100 ARCHIVOS -->
+    <input type="file" id="inputArchivosNovedades" multiple accept="image/*,video/*,audio/*,.pdf,.txt" style="display: none;" onchange="procesarArchivosSeleccionados(this)">
+
+    <!-- MODAL / BOTTOM SHEET: "Añade un estado" -->
+    <div class="modal-overlay-novedades" id="modalAnadirEstado" onclick="cerrarModalEstado(event)">
+        <div class="modal-content-novedades" onclick="event.stopPropagation()">
+            <div class="modal-header-bar">
+                <button class="modal-close-btn" onclick="cerrarModalEstadoDirecto()"><i class="fa-solid fa-xmark"></i></button>
+                <h3>Añade un estado</h3>
+            </div>
+            
+            <div class="modal-options-grid">
+                <div class="modal-option-item" onclick="crearEstadoTexto()">
+                    <div class="option-icon-circle"><i class="fa-solid fa-pen"></i></div>
+                    <span>Texto</span>
+                </div>
+                <div class="modal-option-item" onclick="alert('Opción de Música próximamente')">
+                    <div class="option-icon-circle"><i class="fa-solid fa-music"></i></div>
+                    <span>Musica</span>
+                </div>
+                <div class="modal-option-item" onclick="alert('Opción de Diseño próximamente')">
+                    <div class="option-icon-circle"><i class="fa-solid fa-object-ungroup"></i></div>
+                    <span>Diseño</span>
+                </div>
+                <div class="modal-option-item" onclick="alert('Grabación de audio en desarrollo')">
+                    <div class="option-icon-circle"><i class="fa-solid fa-microphone"></i></div>
+                    <span>Audio</span>
+                </div>
+            </div>
+
+            <div class="modal-section-title">Archivos multimedia y enlaces (Máx. 100)</div>
+            <div class="modal-media-trigger" onclick="abrirSelectorMedios()">
+                <i class="fa-solid fa-folder-open" style="font-size: 24px; color: var(--accent-green);"></i>
+                <div style="text-align: left;">
+                    <strong style="display: block; font-size: 14px; color: var(--text-main);">Seleccionar desde el dispositivo</strong>
+                    <span style="font-size: 12px; color: var(--text-muted);">Sube fotos, videos o documentos (Límite: 100 archivos)</span>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <style>
+    .novedades-container {
+        position: relative;
+        min-height: 100%;
+        padding-bottom: 80px;
+    }
+
     .novedades-wrapper {
         display: flex;
         flex-direction: column;
         gap: 4px;
     }
+
+    .empty-novedades {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 30px 10px;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 13px;
+    }
+
     .section-heading {
         font-size: 12px;
         color: var(--text-muted);
         text-transform: uppercase;
         letter-spacing: 1px;
-        margin: 15px 0 10px 0;
+        margin: 20px 0 10px 0;
     }
+
     .status-card-row {
         display: flex;
         align-items: center;
@@ -62,72 +125,240 @@
         border-radius: 12px;
         transition: background 0.2s;
     }
+
     .status-card-row:hover {
-        background-color: rgba(192, 132, 252, 0.05);
+        background-color: rgba(34, 197, 94, 0.05);
     }
+
     .status-avatar-wrapper {
         position: relative;
-        width: 52px;
-        height: 52px;
+        width: 56px;
+        height: 56px;
     }
+
     .status-ring {
         width: 100%;
         height: 100%;
         border-radius: 50%;
-        background: var(--accent-gradient);
         padding: 2px;
         display: flex;
         align-items: center;
         justify-content: center;
     }
+
     .status-ring-inner {
         width: 100%;
         height: 100%;
         border-radius: 50%;
-        background: var(--input-bg);
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 18px;
-        color: var(--accent-purple);
     }
+
     .my-status-badge {
         position: absolute;
         bottom: 0;
         right: 0;
-        background: var(--accent-gradient);
-        width: 20px;
-        height: 20px;
+        background: var(--accent-green);
+        width: 22px;
+        height: 22px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 10px;
-        color: white;
-        border: 2px solid var(--bg-card);
+        font-size: 11px;
+        color: #0b1320;
+        border: 2px solid var(--bg-primary);
     }
+
     .status-info h4 {
         font-size: 15px;
         font-weight: 600;
-        color: var(--text-main);
     }
+
     .status-info p {
         font-size: 13px;
         color: var(--text-muted);
         margin-top: 2px;
     }
+
+    /* Botones Flotantes (FABs) idénticos al estilo de la app */
+    .novedades-fab-container {
+        position: fixed;
+        bottom: 75px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        z-index: 15;
+    }
+
+    .fab-primary {
+        background-color: var(--accent-green);
+        color: #0b1320;
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .fab-primary:hover {
+        transform: scale(1.05);
+        background-color: var(--accent-hover);
+    }
+
+    .fab-secondary {
+        background-color: var(--bg-secondary);
+        color: var(--text-main);
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        border: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        cursor: pointer;
+        margin: 0 auto;
+        transition: transform 0.2s, color 0.2s;
+    }
+
+    .fab-secondary:hover {
+        transform: scale(1.05);
+        color: var(--accent-green);
+        border-color: var(--accent-green);
+    }
+
+    /* Modal estilo Bottom Sheet / Ventana emergente de opciones */
+    .modal-overlay-novedades {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        display: none;
+        align-items: flex-end;
+        z-index: 100;
+        backdrop-filter: blur(3px);
+    }
+
+    .modal-overlay-novedades.show {
+        display: flex;
+    }
+
+    .modal-content-novedades {
+        background-color: var(--bg-secondary);
+        width: 100%;
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        padding: 20px;
+        border-top: 1px solid var(--border-color);
+        animation: slideUpModal 0.3s ease-out;
+    }
+
+    @keyframes slideUpModal {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+
+    .modal-header-bar {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .modal-close-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-size: 20px;
+        cursor: pointer;
+    }
+
+    .modal-header-bar h3 {
+        font-size: 18px;
+        color: var(--text-main);
+        font-weight: 600;
+    }
+
+    .modal-options-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .modal-option-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+    }
+
+    .option-icon-circle {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background-color: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-main);
+        font-size: 18px;
+        transition: border-color 0.2s, color 0.2s;
+    }
+
+    .modal-option-item:hover .option-icon-circle {
+        border-color: var(--accent-green);
+        color: var(--accent-green);
+    }
+
+    .modal-option-item span {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    .modal-section-title {
+        font-size: 12px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+    }
+
+    .modal-media-trigger {
+        background-color: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        padding: 12px 16px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+
+    .modal-media-trigger:hover {
+        border-color: var(--accent-green);
+    }
 </style>
 
 <script>
     document.addEventListener("DOMContentLoaded", () => {
-        const currentUserId = getActiveUserIdNovedades();
-        if (currentUserId) {
-            let savedStatus = localStorage.getItem("my_status_" + currentUserId);
-            if (savedStatus) {
-                const subtitleEl = document.getElementById('myStatusSubtitle');
-                if (subtitleEl) subtitleEl.innerText = savedStatus;
-            }
-        }
+        cargarEstadoGuardadoNovedades();
     });
 
     function getActiveUserIdNovedades() {
@@ -141,14 +372,40 @@
         }
     }
 
-    function publicarEstadoNovedades() {
+    function cargarEstadoGuardadoNovedades() {
+        const currentUserId = getActiveUserIdNovedades();
+        if (currentUserId) {
+            let savedStatus = localStorage.getItem("my_status_" + currentUserId);
+            if (savedStatus) {
+                const subtitleEl = document.getElementById('myStatusSubtitle');
+                if (subtitleEl) subtitleEl.innerText = savedStatus;
+            }
+        }
+    }
+
+    function abrirModalEstado() {
+        document.getElementById('modalAnadirEstado').classList.add('show');
+    }
+
+    function cerrarModalEstadoDirecto() {
+        document.getElementById('modalAnadirEstado').classList.remove('show');
+    }
+
+    function cerrarModalEstado(event) {
+        if (event.target.id === 'modalAnadirEstado') {
+            cerrarModalEstadoDirecto();
+        }
+    }
+
+    function crearEstadoTexto() {
+        cerrarModalEstadoDirecto();
         const currentUserId = getActiveUserIdNovedades();
         if (!currentUserId) {
             alert("Debes iniciar sesión para publicar un estado.");
             return;
         }
 
-        const nuevoEstado = prompt("¿Qué estás pensando o qué estado deseas publicar?");
+        const nuevoEstado = prompt("Escribe tu estado de texto (desaparece en 24 horas):");
         if (nuevoEstado && nuevoEstado.trim() !== "") {
             const estadoLimpio = nuevoEstado.trim();
             const subtitleEl = document.getElementById('myStatusSubtitle');
@@ -156,12 +413,45 @@
                 subtitleEl.innerText = estadoLimpio;
             }
             localStorage.setItem("my_status_" + currentUserId, estadoLimpio);
-            alert("¡Estado publicado con éxito!");
+            alert("¡Estado de texto publicado con éxito!");
         }
     }
 
-    function verEstadoNovedades(nombreContacto) {
-        alert(`Viendo la actualización de estado de: ${nombreContacto}`);
+    function abrirSelectorMedios() {
+        cerrarModalEstadoDirecto();
+        // Dispara el input file oculto
+        document.getElementById('inputArchivosNovedades').click();
+    }
+
+    function procesarArchivosSeleccionados(input) {
+        const files = input.files;
+        if (!files || files.length === 0) return;
+
+        // Validar límite estricto de 100 archivos
+        if (files.length > 100) {
+            alert(`Has seleccionado ${files.length} archivos. El límite máximo permitido es de 100 archivos por publicación.`);
+            input.value = ""; // Limpiar selección
+            return;
+        }
+
+        const currentUserId = getActiveUserIdNovedades();
+        if (!currentUserId) {
+            alert("Debes iniciar sesión para publicar archivos multimedia.");
+            return;
+        }
+
+        let nombresArchivos = Array.from(files).map(f => f.name).join(", ");
+        let descripcionEstado = `Multimedia (${files.length} archivos)`;
+        
+        const subtitleEl = document.getElementById('myStatusSubtitle');
+        if (subtitleEl) {
+            subtitleEl.innerText = descripcionEstado;
+        }
+
+        localStorage.setItem("my_status_" + currentUserId, descripcionEstado);
+        alert(`¡${files.length} archivo(s) seleccionado(s) y publicado(s) como estado exitosamente!\nArchivos: ${nombresArchivos}`);
+        
+        // Limpiar input para futuras selecciones
+        input.value = "";
     }
 </script>
-
