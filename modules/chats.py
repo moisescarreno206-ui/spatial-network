@@ -80,12 +80,17 @@
         .input-pill span { color: #94a3b8; font-size: 18px; cursor: pointer; }
         
         .mic-fab { width: 45px; height: 45px; background: #8b5cf6; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; cursor: pointer; flex-shrink: 0; }
+
+        /* Placeholder Content for Tabs */
+        .placeholder-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #64748b; gap: 12px; padding-bottom: 70px; }
+        .placeholder-content span { font-size: 36px; }
+        .placeholder-content p { font-size: 15px; font-weight: 500; color: #94a3b8; }
     </style>
 </head>
 <body>
 
     <!-- ================= VIEW 1: LISTA DE CHATS ================= -->
-    <div id="view-chats-list" class="view active">
+    <div id="view-chats" class="view active">
         <div class="header-list">
             <div class="header-title">Spatial Network</div>
             <div class="header-icons">
@@ -165,29 +170,34 @@
         </div>
 
         <div class="fab">💬</div>
+    </div>
 
-        <div class="bottom-nav">
-            <div class="nav-item active">
-                <span>💬</span>
-                Chats
-            </div>
-            <div class="nav-item">
-                <span>⚡</span>
-                Novedades
-            </div>
-            <div class="nav-item">
-                <span>👥</span>
-                Comunidades
-            </div>
-            <div class="nav-item">
-                <span>📞</span>
-                Llamadas
-            </div>
+
+    <!-- ================= VIEW 2: NOVEDADES ================= -->
+    <div id="view-novedades" class="view">
+        {% include 'novedades.html' %}
+    </div>
+
+
+    <!-- ================= VIEW 3: COMUNIDADES ================= -->
+    <div id="view-communities" class="view">
+        <div class="placeholder-content">
+            <span>👥</span>
+            <p>Comunidades de Spatial Network</p>
         </div>
     </div>
 
 
-    <!-- ================= VIEW 2: SALA DE CHAT INDIVIDUAL ================= -->
+    <!-- ================= VIEW 4: LLAMADAS ================= -->
+    <div id="view-calls" class="view">
+        <div class="placeholder-content">
+            <span>📞</span>
+            <p>Historial de llamadas espaciales</p>
+        </div>
+    </div>
+
+
+    <!-- ================= VIEW 5: SALA DE CHAT INDIVIDUAL ================= -->
     <div id="view-chat-room" class="view">
         <div class="chat-room-header">
             <div class="chat-room-user" onclick="closeChat()">
@@ -264,19 +274,55 @@
         </div>
     </div>
 
+
+    <!-- ================= BOTTOM NAVIGATION BAR ================= -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('chats', this)">
+            <span>💬</span>
+            Chats
+        </div>
+        <div class="nav-item" onclick="switchTab('novedades', this)">
+            <span>⚡</span>
+            Novedades
+        </div>
+        <div class="nav-item" onclick="switchTab('communities', this)">
+            <span>👥</span>
+            Comunidades
+        </div>
+        <div class="nav-item" onclick="switchTab('calls', this)">
+            <span>📞</span>
+            Llamadas
+        </div>
+    </div>
+
     <script>
+        function switchTab(tabName, element) {
+            // Ocultar todas las vistas principales y la sala de chat activa
+            document.querySelectorAll('.view').forEach(v => {
+                v.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+            // Activar la vista correspondiente
+            const targetView = document.getElementById(`view-${tabName}`);
+            if (targetView) {
+                targetView.classList.add('active');
+            }
+            element.classList.add('active');
+        }
+
         function openChat(name, status) {
             document.getElementById('room-name').innerText = name;
             document.getElementById('room-avatar').innerText = name.charAt(0);
             document.getElementById('room-status').innerText = status === 'online' ? 'en línea' : 'últ. vez hoy';
             
-            document.getElementById('view-chats-list').classList.remove('active');
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.getElementById('view-chat-room').classList.add('active');
         }
 
         function closeChat() {
             document.getElementById('view-chat-room').classList.remove('active');
-            document.getElementById('view-chats-list').classList.add('active');
+            document.getElementById('view-chats').classList.add('active');
         }
 
         function handleKey(e) {
