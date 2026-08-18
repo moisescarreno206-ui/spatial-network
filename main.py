@@ -11,14 +11,16 @@ from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from virals import router as virals_router
 
-# 1. Importación del Módulo de Autenticación
+# 1. Importación de Módulos (Autenticación y Chats)
 from modules.auth import router as auth_router
+from modules.chats import chats_bp as chats_router  # <-- Nuevo router integrado
 
 app = FastAPI(title="Spatial Network - Engine Core")
 
-# 2. Registrar rutas adicionales (Virales y Autenticación)
+# 2. Registrar rutas adicionales (Virales, Autenticación y Chats)
 app.include_router(virals_router)
 app.include_router(auth_router)
+app.include_router(chats_router)  # <-- Registro de la nueva interfaz de chats
 
 # 3. Gestor de conexiones WebSocket activa
 manager = ConnectionManager()
@@ -29,17 +31,16 @@ AUTH_FILE = BASE_DIR / "templates" / "auth.html"
 INDEX_FILE = BASE_DIR / "templates" / "index.html"
 
 
-@app.get("/chats")
-async def get_chats_view():
-  """Carga la interfaz principal del chat utilizando index.html"""
-  if INDEX_FILE.exists():
-    return FileResponse(INDEX_FILE)
-  
-  root_index = BASE_DIR / "index.html"
-  if root_index.exists():
-    return FileResponse(root_index)
-
-  return HTMLResponse("<h2>Archivo index.html no encontrado en templates/</h2>")
+# ⚠️ NOTA: El endpoint antiguo de /chats fue desactivado aquí para que 
+# el nuevo módulo en modules/chats.py maneje correctamente la vista con pestañas.
+# @app.get("/chats")
+# async def get_chats_view():
+#   if INDEX_FILE.exists():
+#     return FileResponse(INDEX_FILE)
+#   root_index = BASE_DIR / "index.html"
+#   if root_index.exists():
+#     return FileResponse(root_index)
+#   return HTMLResponse("<h2>Archivo index.html no encontrado en templates/</h2>")
 
 
 # 🏠 Ruta Raíz: Carga la pantalla de Autenticación (Login / Registro)
