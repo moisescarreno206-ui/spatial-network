@@ -12,11 +12,11 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from virals import router as virals_router
 
-# 1. Importación de Módulos compatibles con FastAPI
-from modules.chats import chats_bp as chats_router
+# 1. Importación correcta de Módulos compatibles con FastAPI
+from modules.auth import router as auth_router
 from modules.chats import chats_bp as chats_router
 
-# Router de chats actualizado
+# Inicialización de la aplicación FastAPI
 app = FastAPI(title="Spatial Network - Engine Core")
 
 # Montar archivos estáticos si existen
@@ -26,7 +26,7 @@ if (BASE_DIR / "static").exists():
       "/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static"
   )
 
-# 2. Registrar rutas adicionales
+# 2. Registrar rutas adicionales (Virales, Autenticación y Chats)
 app.include_router(virals_router)
 app.include_router(auth_router)
 app.include_router(chats_router)
@@ -34,9 +34,8 @@ app.include_router(chats_router)
 # 3. Gestor de conexiones WebSocket activa
 manager = ConnectionManager()
 
-# 4. Ubicación exacta de las plantillas gráficas
+# 4. Ubicación exacta de la plantilla de autenticación
 AUTH_FILE = BASE_DIR / "templates" / "auth.html"
-INDEX_FILE = BASE_DIR / "templates" / "index.html"
 
 
 # 🏠 Ruta Raíz: Carga la pantalla de Autenticación (Login / Registro)
@@ -53,19 +52,6 @@ async def get_home():
       "<h2>🟢 Servidor Activo. Asegúrate de tener auth.html en la carpeta"
       " templates/</h2>"
   )
-
-
-# 💬 Ruta principal del nuevo panel de pestañas (Chats, News, Communities, Calls)
-@app.get("/chats")
-async def get_chats_view():
-  if INDEX_FILE.exists():
-    return FileResponse(INDEX_FILE)
-
-  root_index = BASE_DIR / "index.html"
-  if root_index.exists():
-    return FileResponse(root_index)
-
-  return HTMLResponse("<h2>Archivo index.html no encontrado en templates/</h2>")
 
 
 # ⚡ Endpoint WebSocket principal (/ws/chat)
@@ -161,4 +147,4 @@ if __name__ == "__main__":
   import uvicorn
 
   uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-      
+        
