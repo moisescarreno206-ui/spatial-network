@@ -9,38 +9,33 @@ from database import (
 )
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from virals import router as virals_router
 
-# 1. Importación de Módulos (Autenticación y Chats)
+# 1. Importación de Módulos compatibles con FastAPI
 from modules.auth import router as auth_router
-from modules.chats import chats_bp as chats_router  # <-- Nuevo router integrado
+from modules.chats import router as chats_router  # Router de chats actualizado
 
 app = FastAPI(title="Spatial Network - Engine Core")
 
-# 2. Registrar rutas adicionales (Virales, Autenticación y Chats)
+# Montar archivos estáticos si existen
+BASE_DIR = Path(__file__).resolve().parent
+if (BASE_DIR / "static").exists():
+  app.mount(
+      "/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static"
+  )
+
+# 2. Registrar rutas adicionales
 app.include_router(virals_router)
 app.include_router(auth_router)
-app.include_router(chats_router)  # <-- Registro de la nueva interfaz de chats
+app.include_router(chats_router)
 
 # 3. Gestor de conexiones WebSocket activa
 manager = ConnectionManager()
 
 # 4. Ubicación exacta de las plantillas gráficas
-BASE_DIR = Path(__file__).resolve().parent
 AUTH_FILE = BASE_DIR / "templates" / "auth.html"
 INDEX_FILE = BASE_DIR / "templates" / "index.html"
-
-
-# ⚠️ NOTA: El endpoint antiguo de /chats fue desactivado aquí para que 
-# el nuevo módulo en modules/chats.py maneje correctamente la vista con pestañas.
-# @app.get("/chats")
-# async def get_chats_view():
-#   if INDEX_FILE.exists():
-#     return FileResponse(INDEX_FILE)
-#   root_index = BASE_DIR / "index.html"
-#   if root_index.exists():
-#     return FileResponse(root_index)
-#   return HTMLResponse("<h2>Archivo index.html no encontrado en templates/</h2>")
 
 
 # 🏠 Ruta Raíz: Carga la pantalla de Autenticación (Login / Registro)
@@ -49,7 +44,6 @@ async def get_home():
   if AUTH_FILE.exists():
     return FileResponse(AUTH_FILE)
 
-  # Respaldo por si auth.html estuviera suelto en la raíz
   root_auth = BASE_DIR / "auth.html"
   if root_auth.exists():
     return FileResponse(root_auth)
@@ -60,9 +54,9 @@ async def get_home():
   )
 
 
-# 🧪 Ruta de Pruebas: Motor de prueba de WebSocket (chat previo)
-@app.get("/test-ws")
-async def get_test_ws():
+# 💬 Ruta principal del nuevo panel de pestañas (Chats, News, Communities, Calls)
+@app.get("/chats")
+async def get_chats_view():
   if INDEX_FILE.exists():
     return FileResponse(INDEX_FILE)
 
@@ -70,7 +64,7 @@ async def get_test_ws():
   if root_index.exists():
     return FileResponse(root_index)
 
-  return HTMLResponse("<h2>Motor de pruebas no encontrado.</h2>")
+  return HTMLResponse("<h2>Archivo index.html no encontrado en templates/</h2>")
 
 
 # ⚡ Endpoint WebSocket principal (/ws/chat)
@@ -81,7 +75,6 @@ async def websocket_endpoint(
   await manager.connect(user_id, websocket)
   await manager.broadcast_presence(user_id, "online")
 
-  # Entregar mensajes offline acumulados en Supabase
   try:
     pending_messages = get_pending_messages(user_id)
     if pending_messages:
@@ -91,14 +84,12 @@ async def websocket_endpoint(
   except Exception as e:
     print(f"⚠️ Error procesando mensajes pendientes: {e}")
 
-  # Escucha continua de eventos
   try:
     while True:
       raw_data = await websocket.receive_text()
       data = json.loads(raw_data)
       event_type = data.get("type")
 
-      # Evento: Enviar mensaje
       if event_type == "send_message":
         recipient_id = str(data.get("recipient_id"))
         msg_id = data.get("message_id")
@@ -115,10 +106,8 @@ async def websocket_endpoint(
             "timestamp": timestamp,
         }
 
-        # Envío en tiempo real si el receptor está en línea
         delivered = await manager.send_to_user(recipient_id, payload)
 
-        # Guardar registro en Supabase
         try:
           save_message(
               sender_id=user_id,
@@ -130,7 +119,6 @@ async def websocket_endpoint(
         except Exception as e:
           print(f"⚠️ Error guardando mensaje en Supabase: {e}")
 
-        # Confirmación (ACK) al emisor
         await manager.send_personal_message(
             {
                 "type": "server_ack",
@@ -140,7 +128,6 @@ async def websocket_endpoint(
             websocket,
         )
 
-      # Evento: Notificación de "Escribiendo..."
       elif event_type == "typing_status":
         recipient_id = str(data.get("recipient_id"))
         await manager.send_to_user(
@@ -153,7 +140,6 @@ async def websocket_endpoint(
             },
         )
 
-      # Evento: Confirmación de lectura
       elif event_type == "read_ack":
         sender_id = str(data.get("sender_id"))
         await manager.send_to_user(
@@ -174,4 +160,4 @@ if __name__ == "__main__":
   import uvicorn
 
   uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-    
+      
