@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 chats_bp = APIRouter()
 
 
+@chats_bp.get("/", response_class=HTMLResponse)
 @chats_bp.get("/chats", response_class=HTMLResponse)
 async def chats_view(request: Request):
   html_content = """<!DOCTYPE html>
@@ -11,18 +12,17 @@ async def chats_view(request: Request):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Spatial Network - Chats</title>
+    <title>Spatial Network - WhatsApp Style</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         
-        /* Usar 100dvh para evitar que la barra móvil recorte el contenido */
         body { background-color: #0d0f18; color: #fff; display: flex; flex-direction: column; height: 100dvh; height: 100vh; overflow: hidden; position: relative; }
 
         .view { display: none; flex-direction: column; height: 100%; width: 100%; position: absolute; top: 0; left: 0; background-color: #0d0f18; padding-bottom: 65px; }
         .view.active { display: flex; }
 
         .header-list { padding: 16px 20px 10px 20px; display: flex; align-items: center; justify-content: space-between; background-color: #0d0f18; }
-        .header-title { font-size: 20px; font-weight: 800; background: linear-gradient(90deg, #c084fc, #e879f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 0.5px; }
+        .header-title { font-size: 19px; font-weight: 800; background: linear-gradient(90deg, #c084fc, #e879f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .header-icons { display: flex; gap: 20px; color: #94a3b8; font-size: 18px; cursor: pointer; }
 
         .search-container { padding: 0 16px 12px 16px; background-color: #0d0f18; }
@@ -45,10 +45,8 @@ async def chats_view(request: Request):
         .chat-time { font-size: 11px; color: #64748b; }
         .chat-preview { font-size: 13px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .fab { position: fixed; bottom: 80px; right: 20px; width: 52px; height: 52px; background: linear-gradient(135deg, #8b5cf6, #a855f7); border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4); cursor: pointer; z-index: 100; }
-
-        /* BARRA DE NAVEGACIÓN INFERIOR ESTILO WHATSAPP */
-        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background-color: #121526; border-top: 1px solid #232742; display: flex; justify-content: space-around; align-items: center; z-index: 1000; }
+        /* BARRA DE NAVEGACIÓN INFERIOR ESTILO WHATSAPP (FIJA) */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background-color: #121526; border-top: 1px solid #232742; display: flex; justify-content: space-around; align-items: center; z-index: 99999; }
         .nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; color: #64748b; font-size: 11px; cursor: pointer; text-decoration: none; flex: 1; }
         .nav-item.active { color: #c084fc; font-weight: 600; }
         .nav-item span { font-size: 18px; }
@@ -89,7 +87,7 @@ async def chats_view(request: Request):
     <!-- VISTA 1: LISTA DE CHATS -->
     <div id="view-chats" class="view active">
         <div class="header-list">
-            <div class="header-title">SPATIAL NETWORK <span id="connection-status">...</span></div>
+            <div class="header-title">SPATIAL V2 <span id="connection-status">...</span></div>
             <div class="header-icons">
                 <span>📷</span>
                 <span>⋮</span>
@@ -117,8 +115,6 @@ async def chats_view(request: Request):
                 </div>
             </div>
         </div>
-
-        <div class="fab">💬</div>
     </div>
 
     <!-- VISTA 2: NOVEDADES -->
@@ -185,7 +181,7 @@ async def chats_view(request: Request):
         </div>
     </div>
 
-    <!-- BARRA DE NAVEGACIÓN INFERIOR FIJA -->
+    <!-- BARRA DE NAVEGACIÓN INFERIOR FIJA (ESTILO WHATSAPP) -->
     <div class="bottom-nav">
         <div class="nav-item active" onclick="switchTab('chats', this)">
             <span>💬</span>
