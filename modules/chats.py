@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTMLResponse, Request
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse
 
 chats_bp = APIRouter()
 
@@ -101,7 +102,6 @@ async def chats_view(request: Request):
         </div>
 
         <div class="chats-list" id="active-chats-list">
-            <!-- Dinámico o chat de prueba conectado al WS -->
             <div class="chat-item" onclick="openChat('Soporte / General', 'user_system', 'online')">
                 <div class="avatar-wrapper online">
                     <div class="avatar">S</div>
@@ -161,9 +161,7 @@ async def chats_view(request: Request):
             </div>
         </div>
 
-        <div class="messages-container" id="messages-list">
-            <!-- Los mensajes en tiempo real se inyectan aquí -->
-        </div>
+        <div class="messages-container" id="messages-list"></div>
 
         <div class="chat-input-bar">
             <div class="input-pill">
@@ -199,7 +197,6 @@ async def chats_view(request: Request):
     <script>
         let ws;
         let currentRecipientId = 'user_system';
-        // Generar un ID de usuario único temporal si no está autenticado
         const userId = localStorage.getItem('spatial_user_id') || 'user_' + Math.floor(Math.random() * 90000 + 10000);
         localStorage.setItem('spatial_user_id', userId);
 
@@ -213,7 +210,6 @@ async def chats_view(request: Request):
                 const statusBadge = document.getElementById('connection-status');
                 statusBadge.innerText = "En línea";
                 statusBadge.classList.add('connected');
-                console.log("WebSocket conectado con éxito.");
             };
 
             ws.onmessage = function(event) {
@@ -221,8 +217,6 @@ async def chats_view(request: Request):
                 if (data.type === 'new_message') {
                     appendMessage(data.content, 'received', data.timestamp || 'Ahora');
                     updatePreview(data.content);
-                } else if (data.type === 'server_ack') {
-                    console.log("Mensaje confirmado por el servidor:", data.message_id);
                 }
             };
 
@@ -230,7 +224,7 @@ async def chats_view(request: Request):
                 const statusBadge = document.getElementById('connection-status');
                 statusBadge.innerText = "Desconectado";
                 statusBadge.classList.remove('connected');
-                setTimeout(initWebSocket, 3000); // Reconectar automáticamente
+                setTimeout(initWebSocket, 3000);
             };
         }
 
@@ -285,8 +279,6 @@ async def chats_view(request: Request):
                 appendMessage(text, 'sent', timeStr + ' ✓✓');
                 updatePreview(text);
                 input.value = '';
-            } else {
-                alert("No hay conexión activa con el servidor en tiempo real.");
             }
         }
 
@@ -305,6 +297,7 @@ async def chats_view(request: Request):
         }
     </script>
 </body>
-</html>"""
+</html>
+"""
   return HTMLResponse(content=html_content)
-    
+  
