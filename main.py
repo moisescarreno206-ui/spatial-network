@@ -1,4 +1,5 @@
 import json
+import traceback
 from pathlib import Path
 
 from connection_manager import ConnectionManager
@@ -7,8 +8,8 @@ from database import (
     mark_pending_as_delivered,
     save_message,
 )
-from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from virals import router as virals_router
 
@@ -18,6 +19,32 @@ from modules.chats import chats_bp as chats_router
 
 # Inicialización de la aplicación FastAPI
 app = FastAPI(title="Spatial Network - Engine Core")
+
+
+# 🔍 Sistema de Diagnóstico de Errores en Vivo
+@app.exception_handler(Exception)
+async def global_diagnostic_handler(request: Request, exc: Exception):
+  tb_str = "".join(
+      traceback.format_exception(type(exc), exc, exc.__traceback__)
+  )
+
+  print("\n" + "=" * 60)
+  print("🚨 [DIAGNÓSTICO SPATIAL NETWORK] ERROR CRÍTICO CAPTURADO:")
+  print(f"📍 Ruta de la petición: {request.url}")
+  print(f"💥 Tipo de excepción: {type(exc).__name__}")
+  print(f"📜 Detalle completo:\n{tb_str}")
+  print("=" * 60 + "\n")
+
+  return JSONResponse(
+      status_code=500,
+      content={
+          "error": True,
+          "message": "Error interno procesado por el sistema de diagnóstico",
+          "details": str(exc),
+          "type": type(exc).__name__,
+      },
+  )
+
 
 # Montar archivos estáticos si existen
 BASE_DIR = Path(__file__).resolve().parent
@@ -147,4 +174,3 @@ if __name__ == "__main__":
   import uvicorn
 
   uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-        
