@@ -20,77 +20,79 @@ async def chats_view(request: Request):
             padding: 0; 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             color: #ffffff;
-            -webkit-text-stroke: 0.5px #000000;
-            text-shadow: 1px 1px 0px #000000, -1px -1px 0px #000000, 1px -1px 0px #000000, -1px 1px 0px #000000;
         }
         
         body { background-color: #08090e; display: flex; flex-direction: column; height: 100dvh; height: 100vh; overflow: hidden; position: relative; }
 
-        .view { display: none; flex-direction: column; height: 100%; width: 100%; position: absolute; top: 0; left: 0; background-color: #08090e; padding-right: 65px; }
+        /* CONTENEDOR DE VISTAS (Dejando espacio a la derecha para el menú vertical del boceto) */
+        .view { display: none; flex-direction: column; height: 100%; width: calc(100% - 75px); position: absolute; top: 0; left: 0; background-color: #08090e; padding-bottom: 20px; }
         .view.active { display: flex; }
 
-        /* CABECERA SUPERIOR SEGÚN BOCETO */
-        .app-header { padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; background-color: #0e1017; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        .app-title-box { display: flex; flex-direction: column; }
-        .app-title { font-size: 17px; font-weight: 800; }
-        .sub-title-tag { font-size: 9px; color: #a855f7; font-weight: 700; }
+        /* CABECERA SUPERIOR (Según boceto) */
+        .app-header { padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; background-color: #0e1017; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .app-title-box { display: flex; flex-direction: column; gap: 2px; }
+        .app-title { font-size: 16px; font-weight: 800; background: linear-gradient(135deg, #a855f7, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        /* GRUPO DE ICONOS SUPERIOR DERECHA (Cámara, Lupa, Opciones) */
-        .top-right-group { display: flex; background: #151821; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 20px; padding: 4px 8px; gap: 8px; align-items: center; }
-        .top-right-group span { font-size: 14px; cursor: pointer; -webkit-text-stroke: 0px; }
+        #connection-status { font-size: 8px; padding: 1px 5px; border-radius: 3px; background: #ef4444; font-weight: 600; width: fit-content; text-transform: uppercase; }
+        #connection-status.connected { background: #22c55e; }
+
+        /* GRUPO DE ICONOS SUPERIOR DERECHA (Cápsula del boceto) */
+        .top-pill-group { display: flex; background: #151821; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 20px; padding: 4px 8px; gap: 6px; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
+        .top-pill-group span { font-size: 13px; cursor: pointer; }
 
         /* BARRA DE BÚSQUEDA */
         .search-section { padding: 10px 14px; background-color: #08090e; }
-        .search-bar { display: flex; align-items: center; background-color: #12151f; border: 1px solid #22c55e; border-radius: 18px; padding: 7px 12px; gap: 8px; }
-        .search-bar input { background: transparent; border: none; outline: none; width: 100%; font-size: 13px; -webkit-text-stroke: 0.3px #000; }
-        .search-bar input::placeholder { color: #a1a1aa; -webkit-text-stroke: 0px; }
-        .search-bar span { color: #22c55e; font-size: 14px; -webkit-text-stroke: 0px; }
+        .search-bar { display: flex; align-items: center; background-color: #12151f; border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 16px; padding: 8px 12px; gap: 8px; }
+        .search-bar input { background: transparent; border: none; outline: none; width: 100%; font-size: 13px; color: #fff; }
+        .search-bar input::placeholder { color: #64748b; }
+        .search-bar span { color: #22c55e; font-size: 14px; }
 
         /* CONTENIDO PRINCIPAL */
-        .main-content { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; }
+        .main-content { flex: 1; overflow-y: auto; padding: 10px 14px; display: flex; flex-direction: column; gap: 12px; }
         
-        .welcome-chats-banner { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; background: #12151f; border-radius: 14px; border: 1px solid rgba(168, 85, 247, 0.3); gap: 6px; }
-        .welcome-chats-banner span { font-size: 26px; color: #a855f7; -webkit-text-stroke: 0px; }
-        .welcome-chats-banner h2 { font-size: 14px; font-weight: 700; }
+        .welcome-chats-banner { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #12151f; border-radius: 12px; border: 1px solid rgba(168, 85, 247, 0.25); }
+        .welcome-chats-banner span { font-size: 22px; color: #a855f7; }
+        .welcome-chats-banner h2 { font-size: 14px; font-weight: 700; color: #f8fafc; }
 
-        /* TARJETAS DE CHAT Y CANAL */
-        .canal-card { display: flex; align-items: center; background: #12151f; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 8px 12px; gap: 10px; cursor: pointer; }
-        .canal-icon { width: 36px; height: 36px; background: #1e2230; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #3b82f6; font-size: 16px; -webkit-text-stroke: 0px; }
-        .canal-info h4 { font-size: 13px; font-weight: 600; }
-        .canal-info p { font-size: 11px; color: #cbd5e1; }
+        /* TARJETAS DE CHAT */
+        .chat-card { display: flex; align-items: center; background: #12151f; border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 12px; padding: 10px 12px; gap: 10px; cursor: pointer; }
+        .chat-avatar { width: 38px; height: 38px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #fff; flex-shrink: 0; }
+        .chat-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .chat-row { display: flex; justify-content: space-between; align-items: baseline; }
+        .chat-name { font-size: 14px; font-weight: 600; color: #f1f5f9; }
+        .chat-time { font-size: 10px; color: #64748b; }
+        .chat-preview { font-size: 12px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* FILA INFERIOR DE CÍRCULOS Y CANAL (DEL BOCETO) */
-        .bottom-sketch-row { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 10px 0; }
-        .circles-row { display: flex; justify-content: space-around; align-items: center; background: #12151f; padding: 8px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05); }
-        .circle-item { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 12px; background: #181c2b; cursor: pointer; -webkit-text-stroke: 0px; }
+        /* BOTÓN FLOTANTE (+) */
+        .fab-card { background: #12151f; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; margin-top: auto; }
+        .fab-card span { font-size: 16px; color: #3b82f6; font-weight: bold; }
 
-        /* MENÚ LATERAL VERTICAL DERECHO (DEL BOCETO) */
-        .vertical-sidebar { position: fixed; top: 0; right: 0; width: 65px; height: 100vh; background-color: #0e1017; border-left: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; justify-content: space-around; align-items: center; padding: 20px 0; z-index: 1000; }
-        .v-menu-item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 9px; cursor: pointer; color: #94a3b8; transition: color 0.2s; font-weight: 600; }
-        .v-menu-item.active { color: #3b82f6; }
-        .v-menu-item span { font-size: 16px; -webkit-text-stroke: 0px; }
+        /* MENÚ VERTICAL LATERAL DERECHO (EXACTO AL BOCETO) */
+        .vertical-sidebar { position: fixed; top: 0; right: 0; width: 75px; height: 100vh; background-color: #0e1017; border-left: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; padding: 15px 0; z-index: 1000; box-shadow: -4px 0 15px rgba(0,0,0,0.5); }
+        .v-menu-item { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; cursor: pointer; color: #64748b; transition: all 0.2s; font-weight: 600; padding: 8px 4px; border-radius: 8px; width: 60px; text-align: center; }
+        .v-menu-item.active { color: #3b82f6; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); }
+        .v-menu-item span { font-size: 18px; }
 
         /* SALA DE CHAT INDIVIDUAL */
-        .chat-room-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background-color: #0e1017; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        .chat-room-back { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-        .chat-room-back span { font-size: 18px; color: #3b82f6; -webkit-text-stroke: 0px; }
-        .chat-room-name { font-size: 14px; font-weight: 600; }
+        #view-chat-room { width: 100%; padding-right: 0; }
+        .chat-room-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background-color: #0e1017; border-bottom: 1px solid rgba(255,255,255,0.06); }
+        .room-back-btn { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+        .room-back-btn span { font-size: 18px; color: #3b82f6; }
+        .room-title { font-size: 14px; font-weight: 600; color: #fff; }
         
         .messages-container { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; background-color: #08090e; }
-        .bubble { max-width: 78%; padding: 9px 12px; border-radius: 10px; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
-        .bubble.received { background-color: #12151f; align-self: flex-start; border-top-left-radius: 4px; }
-        .bubble.sent { background: linear-gradient(135deg, #3b82f6, #1d4ed8); align-self: flex-end; border-top-right-radius: 4px; }
-        .bubble-time { font-size: 9px; align-self: flex-end; color: rgba(255,255,255,0.8); -webkit-text-stroke: 0.3px #000; }
+        .bubble { max-width: 80%; padding: 9px 12px; border-radius: 10px; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
+        .bubble.received { background-color: #12151f; align-self: flex-start; border-top-left-radius: 4px; color: #e2e8f0; }
+        .bubble.sent { background: linear-gradient(135deg, #3b82f6, #1d4ed8); align-self: flex-end; border-top-right-radius: 4px; color: #fff; }
+        .bubble-time { font-size: 9px; align-self: flex-end; color: rgba(255,255,255,0.7); }
 
-        .chat-input-bar { display: flex; align-items: center; padding: 10px 12px; background-color: #0e1017; border-top: 1px solid rgba(255,255,255,0.08); gap: 8px; }
-        .chat-input-bar input { flex: 1; background: #12151f; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 18px; padding: 8px 12px; outline: none; font-size: 13px; -webkit-text-stroke: 0.3px #000; }
-        .send-btn { width: 36px; height: 36px; background: #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; -webkit-text-stroke: 0px; }
+        .chat-input-bar { display: flex; align-items: center; padding: 10px 12px; background-color: #0e1017; border-top: 1px solid rgba(255,255,255,0.06); gap: 8px; }
+        .chat-input-bar input { flex: 1; background: #12151f; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 18px; padding: 8px 12px; outline: none; font-size: 13px; color: #fff; }
+        .send-btn { width: 36px; height: 36px; background: #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; }
 
-        .placeholder-view { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 20px; }
-        .placeholder-view span { font-size: 28px; color: #3b82f6; -webkit-text-stroke: 0px; }
-        
-        #connection-status { font-size: 8px; padding: 1px 4px; border-radius: 3px; background: #ef4444; font-weight: 600; -webkit-text-stroke: 0px; }
-        #connection-status.connected { background: #22c55e; }
+        .placeholder-view { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; padding: 20px; color: #64748b; }
+        .placeholder-view span { font-size: 32px; color: #3b82f6; }
+        .placeholder-view p { font-size: 13px; color: #94a3b8; }
     </style>
 </head>
 <body>
@@ -100,10 +102,10 @@ async def chats_view(request: Request):
         <div class="app-header">
             <div class="app-title-box">
                 <div class="app-title">Spatial Network</div>
-                <span id="connection-status">Desconectado</span>
+                <span id="connection-status">...</span>
             </div>
-            <!-- Grupo superior derecho del boceto -->
-            <div class="top-right-group">
+            <!-- Grupo superior derecho exacto al boceto -->
+            <div class="top-pill-group">
                 <span title="Cámara">📷</span>
                 <span title="Buscar">🔍</span>
                 <span title="Opciones">⋮</span>
@@ -113,42 +115,45 @@ async def chats_view(request: Request):
         <div class="search-section">
             <div class="search-bar">
                 <span>🔍</span>
-                <input type="text" placeholder="Bucar chat...">
+                <input type="text" placeholder="Buscar chat o canal...">
             </div>
         </div>
 
         <div class="main-content">
             <div class="welcome-chats-banner">
                 <span>💬</span>
-                <h2>Inicio de tus Chats</h2>
+                <div>
+                    <h2>Inicio de tus Chats</h2>
+                    <p style="font-size: 11px; color: #94a3b8;">Conversaciones en tiempo real</p>
+                </div>
             </div>
 
-            <div class="canal-card" onclick="openChat('Soporte General', 'user_system', 'online')">
-                <div class="canal-icon">S</div>
-                <div class="canal-info" style="flex: 1;">
-                    <h4>Soporte General</h4>
-                    <p id="last-msg-preview">Conectado al servidor WebSocket...</p>
-                </div>
-                <span style="font-size: 10px;" id="last-time">Ahora</span>
-            </div>
-
-            <!-- Fila de círculos y canal de tu boceto inferior -->
-            <div class="bottom-sketch-row">
-                <div class="circles-row">
-                    <div class="circle-item">👤</div>
-                    <div class="circle-item">🔹</div>
-                    <div class="circle-item">👤</div>
-                    <div class="circle-item">🔹</div>
-                    <div class="circle-item">👤</div>
-                </div>
-
-                <div class="canal-card">
-                    <div class="canal-icon" style="color: #22c55e;">📢</div>
-                    <div class="canal-info" style="flex: 1;">
-                        <h4>CANAL</h4>
-                        <p>Canal oficial de la red</p>
+            <!-- SOPORTE GENERAL -->
+            <div class="chat-card" onclick="openChat('Soporte General', 'user_system', 'online')">
+                <div class="chat-avatar">S</div>
+                <div class="chat-info">
+                    <div class="chat-row">
+                        <span class="chat-name">Soporte General</span>
+                        <span class="chat-time" id="last-time">Ahora</span>
                     </div>
+                    <div class="chat-preview" id="last-msg-preview">Conectado al servidor WebSocket...</div>
                 </div>
+            </div>
+
+            <!-- CANAL OFICIAL -->
+            <div class="chat-card">
+                <div class="chat-avatar" style="background: linear-gradient(135deg, #22c55e, #15803d);">📢</div>
+                <div class="chat-info">
+                    <div class="chat-row">
+                        <span class="chat-name">Canal Oficial</span>
+                        <span class="chat-time">Ayer</span>
+                    </div>
+                    <div class="chat-preview">Actualizaciones de la red espacial</div>
+                </div>
+            </div>
+
+            <div class="fab-card" onclick="alert('Crear nuevo chat o canal')">
+                <span>➕</span> <span style="font-size: 13px; font-weight: 600; color: #3b82f6;">Crear Nuevo</span>
             </div>
         </div>
     </div>
@@ -160,52 +165,41 @@ async def chats_view(request: Request):
         </div>
         <div class="placeholder-view">
             <span>⚡</span>
-            <p>Estados en tiempo real</p>
+            <p>Estados e historias en tiempo real</p>
         </div>
     </div>
 
-    <!-- VISTA 3: COMUNIDADES / MAMÁ -->
-    <div id="view-communities" class="view">
+    <!-- VISTA 3: MAMÁ / GRUPOS -->
+    <div id="view-mama" class="view">
         <div class="app-header">
-            <div class="app-title">Comunidades</div>
+            <div class="app-title">Mamá</div>
         </div>
         <div class="placeholder-view">
-            <span>👥</span>
-            <p>Grupos y comunidades</p>
+            <span>💬</span>
+            <p>Chat personal y conexiones especiales</p>
         </div>
     </div>
 
-    <!-- VISTA 4: LLAMADAS -->
-    <div id="view-calls" class="view">
-        <div class="app-header">
-            <div class="app-title">Llamadas</div>
-        </div>
-        <div class="placeholder-view">
-            <span>📞</span>
-            <p>Historial de llamadas</p>
-        </div>
-    </div>
-
-    <!-- VISTA 5: PERFIL -->
+    <!-- VISTA 4: PERFIL -->
     <div id="view-profile" class="view">
         <div class="app-header">
             <div class="app-title">Perfil</div>
         </div>
         <div class="placeholder-view">
             <span>👤</span>
-            <p>Configuración de cuenta</p>
+            <p>Configuración de tu cuenta</p>
         </div>
     </div>
 
-    <!-- VISTA 6: SALA DE CHAT -->
-    <div id="view-chat-room" class="view" style="padding-right: 0;">
+    <!-- VISTA 5: SALA DE CHAT -->
+    <div id="view-chat-room" class="view">
         <div class="chat-room-header">
-            <div class="chat-room-back" onclick="closeChat()">
+            <div class="room-back-btn" onclick="closeChat()">
                 <span>←</span>
-                <div class="canal-icon" id="room-avatar" style="width: 30px; height: 30px; font-size: 13px;">S</div>
-                <div class="chat-room-name" id="room-name">Soporte General</div>
+                <div class="chat-avatar" id="room-avatar" style="width: 32px; height: 32px; font-size: 12px;">S</div>
+                <div class="room-title" id="room-name">Soporte General</div>
             </div>
-            <div class="top-right-group">
+            <div class="top-pill-group">
                 <span>📹</span>
                 <span>📞</span>
             </div>
@@ -219,19 +213,16 @@ async def chats_view(request: Request):
         </div>
     </div>
 
-    <!-- MENÚ LATERAL VERTICAL DERECHO (DEL BOCETO) -->
+    <!-- MENÚ VERTICAL LATERAL DERECHO (EXACTO AL BOCETO) -->
     <div class="vertical-sidebar">
         <div class="v-menu-item active" onclick="switchTab('chats', this)">
-            <span>💬</span>Chats
+            <span>💬</span>chats
         </div>
         <div class="v-menu-item" onclick="switchTab('novedades', this)">
             <span>⚡</span>Novedades
         </div>
-        <div class="v-menu-item" onclick="switchTab('communities', this)">
-            <span>👥</span>Grupos
-        </div>
-        <div class="v-menu-item" onclick="switchTab('calls', this)">
-            <span>📞</span>Llamadas
+        <div class="v-menu-item" onclick="switchTab('mama', this)">
+            <span>💖</span>Mamá
         </div>
         <div class="v-menu-item" onclick="switchTab('profile', this)">
             <span>👤</span>Perfil
