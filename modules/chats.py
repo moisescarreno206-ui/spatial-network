@@ -39,13 +39,13 @@ async def chats_view(request: Request):
         .header-icons { display: flex; gap: 14px; align-items: center; }
         .icon-btn { font-size: 18px; cursor: pointer; color: #cbd5e1; }
 
-        /* MENÚ DESPLEGABLE DE TRES PUNTOS (POPUP) */
+        /* MENÚ DESPLEGABLE */
         .dropdown-menu { display: none; position: absolute; top: 55px; right: 12px; background: #151821; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; width: 180px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); z-index: 2000; overflow: hidden; }
         .dropdown-menu.show { display: flex; flex-direction: column; }
         .dropdown-item { padding: 12px 16px; font-size: 14px; color: #f1f5f9; display: flex; align-items: center; gap: 10px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); }
         .dropdown-item:active { background: rgba(59, 130, 246, 0.2); }
 
-        /* FILTROS TIPO WHATSAPP (Todos, No leídos, Favoritos, Grupos) */
+        /* FILTROS WHATSAPP */
         .filters-scroll { display: flex; gap: 8px; padding: 10px 16px; background-color: #08090e; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
         .filters-scroll::-webkit-scrollbar { display: none; }
         .filter-pill { padding: 6px 14px; background: #12151f; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; font-size: 13px; font-weight: 500; color: #94a3b8; cursor: pointer; flex-shrink: 0; }
@@ -68,40 +68,53 @@ async def chats_view(request: Request):
         .chat-card { display: flex; align-items: center; background: #12151f; border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 14px; padding: 10px 12px; gap: 12px; cursor: pointer; transition: background 0.2s; }
         .chat-card:active { background: #1a1e2e; }
         
-        .chat-avatar { width: 48px; height: 48px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; color: #fff; flex-shrink: 0; }
+        .chat-avatar { width: 48px; height: 48px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 18px; color: #fff; flex-shrink: 0; cursor: pointer; }
         .chat-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
         .chat-row { display: flex; justify-content: space-between; align-items: baseline; }
         .chat-name { font-size: 15px; font-weight: 600; color: #f1f5f9; }
         .chat-time { font-size: 11px; color: #64748b; }
         .chat-preview { font-size: 13px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* BOTÓN FLOTANTE ESTILO WHATSAPP */
+        /* FAB */
         .fab-whatsapp { position: fixed; bottom: 75px; right: 20px; background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; width: 52px; height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); z-index: 99; }
 
-        /* BARRA DE NAVEGACIÓN INFERIOR (4 PESTAÑAS EXACTAS) */
+        /* BARRA INFERIOR */
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background-color: #0e1017; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-around; align-items: center; z-index: 1000; }
         .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; cursor: pointer; flex: 1; height: 100%; color: #64748b; transition: color 0.2s; font-weight: 500; }
         .nav-item.active { color: #3b82f6; font-weight: 600; }
         .nav-item span { font-size: 18px; }
 
-        /* SECCIONES SECUNDARIAS (Novedades, Comunidades, Llamadas) */
         .section-header-title { font-size: 16px; font-weight: 700; color: #f8fafc; margin-bottom: 10px; }
         
-        /* PANTALLA DE PERFIL (Accesible desde los tres puntos) */
-        #view-profile { background-color: #08090e; }
-        .profile-header-banner { display: flex; flex-direction: column; align-items: center; padding: 24px 16px; background: #0e1017; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 12px; }
-        .profile-big-avatar { width: 90px; height: 90px; border-radius: 50%; background: linear-gradient(135deg, #a855f7, #3b82f6); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; border: 2px solid rgba(59,130,246,0.5); }
-        .profile-name { font-size: 18px; font-weight: 700; color: #fff; }
-        .profile-username { font-size: 13px; color: #94a3b8; }
+        /* PANTALLA DE PERFIL (Estilo Imagen 1) */
+        #view-profile { background-color: #08090e; z-index: 1500; }
+        .profile-header-banner { display: flex; flex-direction: column; align-items: center; padding: 28px 16px; background: #0e1017; border-bottom: 1px solid rgba(255,255,255,0.06); gap: 12px; }
+        .profile-big-avatar-wrapper { position: relative; width: 120px; height: 120px; cursor: pointer; }
+        .profile-big-avatar { width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, #a855f7, #3b82f6); display: flex; align-items: center; justify-content: center; font-size: 42px; font-weight: bold; border: 2px solid rgba(59,130,246,0.5); }
+        .profile-camera-badge { position: absolute; bottom: 4px; right: 4px; background: #22c55e; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid #0e1017; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
         
-        .profile-options-list { display: flex; flex-direction: column; }
-        .profile-option-item { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; }
+        .profile-options-list { display: flex; flex-direction: column; padding-top: 10px; }
+        .profile-option-item { display: flex; align-items: center; gap: 16px; padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; }
         .profile-option-item:active { background: rgba(59, 130, 246, 0.1); }
-        .profile-option-item span { font-size: 18px; color: #3b82f6; }
-        .profile-option-text h4 { font-size: 14px; font-weight: 600; color: #f1f5f9; }
-        .profile-option-text p { font-size: 12px; color: #94a3b8; }
+        .profile-option-item > span { font-size: 20px; color: #94a3b8; }
+        .profile-option-text h4 { font-size: 13px; font-weight: 500; color: #94a3b8; }
+        .profile-option-text p { font-size: 15px; font-weight: 500; color: #f1f5f9; margin-top: 2px; }
 
-        /* SALA DE CHAT INDIVIDUAL */
+        /* PANTALLA CREADOR DE ESTADOS (Estilo Imagen 2) */
+        #view-status-creator { display: none; flex-direction: column; height: 100%; width: 100%; position: absolute; top: 0; left: 0; background-color: #08090e; z-index: 2500; }
+        #view-status-creator.active { display: flex; }
+        
+        .status-modes-bar { display: flex; justify-content: space-around; padding: 16px 8px; background: #08090e; }
+        .status-mode-btn { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+        .status-mode-icon { width: 52px; height: 52px; background: #161a27; border: 1px solid rgba(255,255,255,0.08); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #cbd5e1; }
+        .status-mode-btn span:last-child { font-size: 12px; color: #94a3b8; font-weight: 500; }
+
+        .status-gallery-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; }
+        .status-gallery-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 0 12px 16px 12px; }
+        .media-tile { aspect-ratio: 1; background: #12151f; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: opacity 0.2s; }
+        .media-tile:active { opacity: 0.7; }
+
+        /* SALA DE CHAT */
         #view-chat-room { display: none; flex-direction: column; height: 100%; width: 100%; position: absolute; top: 0; left: 0; background-color: #08090e; z-index: 1500; }
         #view-chat-room.active { display: flex; }
         .chat-room-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background-color: #0e1017; border-bottom: 1px solid rgba(255,255,255,0.06); }
@@ -133,15 +146,13 @@ async def chats_view(request: Request):
                 <span class="icon-btn" title="Cámara">📷</span>
                 <span class="icon-btn" title="Opciones" onclick="toggleMenu(event)">⋮</span>
             </div>
-            <!-- Menú desplegable con Perfil -->
             <div id="app-dropdown" class="dropdown-menu">
-                <div class="dropdown-item" onclick="openProfileView()"><span>👤</span> Mi Perfil</div>
+                <div class="dropdown-item" onclick="openProfileView()"><span>👤</span> Perfil</div>
                 <div class="dropdown-item" onclick="alert('Nuevo grupo')"><span>👥</span> Nuevo grupo</div>
                 <div class="dropdown-item" onclick="alert('Ajustes generales')"><span>⚙️</span> Ajustes</div>
             </div>
         </div>
 
-        <!-- Filtros estilo WhatsApp -->
         <div class="filters-scroll">
             <div class="filter-pill active">Todos</div>
             <div class="filter-pill">No leídos</div>
@@ -162,7 +173,6 @@ async def chats_view(request: Request):
                 <div>Archivados</div>
             </div>
 
-            <!-- SOPORTE GENERAL -->
             <div class="chat-card" onclick="openChat('Soporte General', 'user_system')">
                 <div class="chat-avatar">S</div>
                 <div class="chat-info">
@@ -174,7 +184,6 @@ async def chats_view(request: Request):
                 </div>
             </div>
 
-            <!-- CANAL OFICIAL -->
             <div class="chat-card" onclick="openChat('Canal Oficial', 'channel_official')">
                 <div class="chat-avatar" style="background: linear-gradient(135deg, #22c55e, #15803d);">📢</div>
                 <div class="chat-info">
@@ -203,11 +212,11 @@ async def chats_view(request: Request):
         </div>
         <div class="main-content" style="padding-top: 16px;">
             <div class="section-header-title">Estados</div>
-            <div class="chat-card">
-                <div class="chat-avatar" style="border: 2px solid #22c55e;">+</div>
+            <div class="chat-card" onclick="openStatusCreator()">
+                <div class="chat-avatar" style="border: 2px solid #22c55e; background: #161a27;">+</div>
                 <div class="chat-info">
                     <span class="chat-name">Mi estado</span>
-                    <span class="chat-preview">Añade una actualización</span>
+                    <span class="chat-preview" id="status-status-text">Añade una actualización (Caduca en 24h)</span>
                 </div>
             </div>
         </div>
@@ -251,7 +260,7 @@ async def chats_view(request: Request):
         </div>
     </div>
 
-    <!-- VISTA DE PERFIL (Abierta desde los tres puntos) -->
+    <!-- VISTA DE PERFIL (Estilo Imagen 1 - Accesible tocando la foto o desde el menú) -->
     <div id="view-profile" class="view">
         <div class="app-header">
             <div class="room-back-btn" onclick="closeProfileView()">
@@ -260,31 +269,100 @@ async def chats_view(request: Request):
             </div>
         </div>
         <div class="profile-header-banner">
-            <div class="profile-big-avatar">M</div>
-            <div class="profile-name">Moisés Carreño</div>
-            <div class="profile-username">@Jack12747</div>
+            <div class="profile-big-avatar-wrapper" onclick="alert('Cambiar foto de perfil (Cámara / Galería)')">
+                <div class="profile-big-avatar">M</div>
+                <div class="profile-camera-badge">📷</div>
+            </div>
         </div>
         <div class="profile-options-list">
-            <div class="profile-option-item" onclick="alert('Editar nombre o información')">
-                <span>✏️</span>
+            <div class="profile-option-item" onclick="editName()">
+                <span>👤</span>
                 <div class="profile-option-text">
-                    <h4>Nombre y Estado</h4>
-                    <p>Moisés Carreño</p>
+                    <h4>Nombre</h4>
+                    <p id="display-name">Moisés Carreño</p>
                 </div>
             </div>
-            <div class="profile-option-item" onclick="alert('Dispositivos vinculados')">
-                <span>💻</span>
+            <div class="profile-option-item" onclick="alert('Editar sección Info.')">
+                <span>ℹ️</span>
                 <div class="profile-option-text">
-                    <h4>Dispositivos vinculados</h4>
-                    <p>Gestiona tus sesiones activas</p>
+                    <h4>Info.</h4>
+                    <p style="color: #22c55e;">Completar sección Info.</p>
                 </div>
             </div>
-            <div class="profile-option-item" onclick="alert('Privacidad y seguridad')">
-                <span>🔒</span>
+            <div class="profile-option-item">
+                <span>@</span>
                 <div class="profile-option-text">
-                    <h4>Privacidad</h4>
-                    <p>Bloqueos y mensajes temporales</p>
+                    <h4>Nombre de usuario reservado</h4>
+                    <p>Jack12747</p>
                 </div>
+            </div>
+            <div class="profile-option-item">
+                <span>📞</span>
+                <div class="profile-option-text">
+                    <h4>Teléfono</h4>
+                    <p>+58 414-4627194</p>
+                </div>
+            </div>
+            <div class="profile-option-item" onclick="alert('Añadir enlaces personalizados')">
+                <span>🔗</span>
+                <div class="profile-option-text">
+                    <h4>Enlaces</h4>
+                    <p style="color: #22c55e;">Añadir enlaces</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANTALLA CREADOR DE ESTADOS (Estilo Imagen 2 - Límite 100, Caducidad 24h) -->
+    <div id="view-status-creator">
+        <div class="app-header" style="background: transparent; border: none;">
+            <div class="room-back-btn" onclick="closeStatusCreator()">
+                <span style="font-size: 22px;">✕</span>
+            </div>
+            <div class="room-title" style="font-size: 17px; font-weight: 600;">Añade un estado</div>
+            <div></div>
+        </div>
+        
+        <div class="status-modes-bar">
+            <div class="status-mode-btn" onclick="publishStatus('Texto')">
+                <div class="status-mode-icon">✏️</div>
+                <span>Texto</span>
+            </div>
+            <div class="status-mode-btn" onclick="publishStatus('Música')">
+                <div class="status-mode-icon">🎵</div>
+                <span>Música</span>
+            </div>
+            <div class="status-mode-btn" onclick="publishStatus('Diseño')">
+                <div class="status-mode-icon">🎨</div>
+                <span>Diseño</span>
+            </div>
+            <div class="status-mode-btn" onclick="publishStatus('Audio')">
+                <div class="status-mode-icon">🎤</div>
+                <span>Audio</span>
+            </div>
+        </div>
+
+        <div class="status-gallery-header">
+            <span style="font-size: 14px; font-weight: 600; color: #94a3b8;">Recientes ▾</span>
+            <span id="status-counter-display" style="font-size: 12px; color: #3b82f6; font-weight: 600;">0 / 100 estados</span>
+        </div>
+
+        <div class="status-gallery-grid">
+            <div class="media-tile" onclick="publishStatus('Foto de Cámara')">
+                <span style="font-size: 24px; color: #22c55e;">📷</span>
+                <span style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Cámara</span>
+            </div>
+            <div class="media-tile" onclick="publishStatus('Imagen Ilustración')">
+                <span style="font-size: 18px;">🖼️</span>
+                <span style="font-size: 10px; color: #94a3b8; margin-top: 4px;">Imagen</span>
+            </div>
+            <div class="media-tile" onclick="publishStatus('Video Corto')">
+                <span style="font-size: 18px;">🎥</span>
+                <span style="font-size: 10px; color: #94a3b8; margin-top: 4px;">Video</span>
+            </div>
+            <div class="media-tile" onclick="publishStatus('Enlace Web')">
+                <span style="font-size: 18px;">🔗</span>
+                <span style="font-size: 10px; color: #94a3b8; margin-top: 4px;">Enlace</span>
             </div>
         </div>
     </div>
@@ -311,7 +389,7 @@ async def chats_view(request: Request):
         </div>
     </div>
 
-    <!-- BARRA DE NAVEGACIÓN INFERIOR (4 PESTAÑAS EXACTAS) -->
+    <!-- BARRA INFERIOR (4 PESTAÑAS) -->
     <div class="bottom-nav">
         <div class="nav-item active" onclick="switchTab('chats', this)">
             <span>💬</span>Chats
@@ -332,6 +410,49 @@ async def chats_view(request: Request):
         let currentRecipientId = 'user_system';
         const userId = localStorage.getItem('spatial_user_id') || 'user_' + Math.floor(Math.random() * 90000 + 10000);
         localStorage.setItem('spatial_user_id', userId);
+
+        // Gestión de Estados con límite de 100 y expiración de 24h
+        let statuses = JSON.parse(localStorage.getItem('spatial_statuses') || '[]');
+        updateStatusCounter();
+
+        function updateStatusCounter() {
+            const count = statuses.length;
+            const display = document.getElementById('status-counter-display');
+            if (display) display.innerText = `${count} / 100 estados`;
+        }
+
+        function publishStatus(type) {
+            if (statuses.length >= 100) {
+                alert('Has alcanzado el límite máximo de 100 estados activos.');
+                return;
+            }
+            const newStatus = {
+                type: type,
+                timestamp: Date.now(),
+                expiresAt: Date.now() + (24 * 60 * 60 * 1000) // Caduca en 24 horas
+            };
+            statuses.push(newStatus);
+            localStorage.setItem('spatial_statuses', JSON.stringify(statuses));
+            updateStatusCounter();
+            closeStatusCreator();
+            alert(`¡Estado de tipo "${type}" publicado con éxito! Caducará en 24 horas.`);
+        }
+
+        function openStatusCreator() {
+            document.getElementById('view-status-creator').classList.add('active');
+        }
+
+        function closeStatusCreator() {
+            document.getElementById('view-status-creator').classList.remove('active');
+        }
+
+        function editName() {
+            const newName = prompt("Introduce tu nuevo nombre:", document.getElementById('display-name').innerText);
+            if (newName && newName.trim() !== '') {
+                document.getElementById('display-name').innerText = newName.trim();
+                alert('Nombre actualizado correctamente.');
+            }
+        }
 
         function initWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -435,7 +556,7 @@ async def chats_view(request: Request):
                 ws.send(JSON.stringify(payload));
                 appendMessage(text, 'sent', timeStr + ' ✓');
                 updatePreview(text);
-                input.value = '';
+                input.value =('');
             }
         }
 
